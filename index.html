@@ -135,6 +135,27 @@
   .card .ph img{width:100%;height:100%;object-fit:cover}
   .mat.matso{color:#8a8d90}
   .so-tag{font-style:normal;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:#101820;color:#fff;padding:2px 6px;border-radius:4px;margin-left:8px}
+  /* Completa o look */
+  .ups{position:fixed;inset:0;z-index:60;background:rgba(11,17,23,.6);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+  .ups.on{opacity:1;pointer-events:auto}
+  .ups-in{position:relative;background:#fff;width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:22px 18px 18px;transform:translateY(30px);transition:transform .25s}
+  .ups.on .ups-in{transform:none}
+  @media(min-width:760px){.ups{align-items:center}.ups-in{border-radius:18px}}
+  .ups-x{position:absolute;top:10px;right:12px;width:34px;height:34px;border-radius:50%;background:#f2f2f2;font-size:22px;line-height:1}
+  .ups-k{font-family:Montserrat,Poppins,sans-serif;font-size:10px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:#8a8d90}
+  .ups-in h3{font-family:Montserrat,Poppins,sans-serif;font-size:20px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:4px 0 14px;color:#101820}
+  .ups-l{display:flex;flex-direction:column;gap:10px}
+  .ups-i{display:flex;align-items:center;gap:12px;padding:8px;border:1.5px solid #ececec;border-radius:14px;transition:border-color .2s}
+  .ups-i.on{border-color:#101820}
+  .ups-i img{width:62px;height:62px;border-radius:10px;object-fit:cover;background:#f3f3f3;flex:none}
+  .ups-t{flex:1;min-width:0}
+  .ups-t b{display:block;font-family:Montserrat,Poppins,sans-serif;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#101820}
+  .ups-t span{font-size:13px;color:#101820}
+  .ups-t s{color:#9a9da0;font-size:11px;margin-left:4px}
+  .ups-a{flex:none;font-size:11px;font-weight:700;letter-spacing:.04em;padding:9px 12px;border-radius:999px;border:1.5px solid #101820;color:#101820;background:#fff}
+  .ups-a[aria-pressed="true"]{background:#101820;color:#fff}
+  .ups-go{display:block;width:100%;margin-top:16px;background:#25a24a;color:#fff;font-weight:700;font-size:15px;padding:15px;border-radius:14px}
+  .ups-sk{display:block;width:100%;margin-top:6px;padding:10px;font-size:13px;color:#6b6f6c;text-decoration:underline}
   .badge.so{background:#101820}
   .card.sold .ph img{opacity:.5;filter:grayscale(.6)}
   .card.sold .go{background:#c9cbcd;color:#fff}
@@ -474,7 +495,7 @@ if(SALE.on) CATS.forEach(c=>c.groups.forEach(g=>g.items.forEach(p=>{
   p.was=p.price; p.price=cut(p.price); delete p.save;
   if(p.opts) p.opts=p.opts.map(o=>({...o, was:o.price, price:cut(o.price)}));
 })));
-const ALL = {}; CATS.forEach(c=>c.groups.forEach(g=>g.items.forEach(p=>{p.cat=c.name;ALL[p.id]=p})));
+const ALL = {}; CATS.forEach(c=>c.groups.forEach(g=>g.items.forEach(p=>{p.cat=c.name;p.catId=c.id;ALL[p.id]=p})));
 /* which photo shows each finish (photo number) */
 const FIN = {
   "void":{ouro:1,prata:2},
@@ -522,6 +543,66 @@ CATS.forEach(c=>c.groups.forEach(g=>g.items.forEach(p=>{
 ["conj-cuban-8mm","conj-cuban-5mm","conj-cuban-3mm","conj-figaro-5mm","conj-colar-mascote"].forEach(id=>{ if(!ALL[id]) return; ALL[id].sizes=BRACELET; ALL[id].sizeLabel="Tamanho do mascote"; });
 if(ALL["conj-colar-anel"]){ ALL["conj-colar-anel"].sizes=RING; ALL["conj-colar-anel"].sizeLabel="Tamanho do anel"; }
 const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g,".") + " MT";
+
+// ===== "Completa o look" (add-on antes do WhatsApp) =====
+// MAIS_VENDIDOS: muda esta lista para os teus produtos mais vendidos.
+const MAIS_VENDIDOS=["cuban-5mm","bussola","anel-onyx-a01","fio-cuban-3mm"];
+const CAIXINHA_ID="caixinha";
+const COMBINA={ pingentes:["mascotes"], colares:["mascotes"], mascotes:["colares","pingentes"], aneis:["aneis"], perolas:["perolas","mascotes"], brincos:["pingentes"], "caixinha-mta":["pingentes"] };
+let ORDER_LINES=[];
+function upOK(p){ return p && p.price!=null && !p.soldOut && p.id!==cur.id && p.imgs; }
+function pickUpsell(){
+  const out=[], has=id=>out.some(x=>x.id===id);
+  const cx=ALL[CAIXINHA_ID]; if(upOK(cx) && cur.catId!=="caixinha-mta") out.push(cx);
+  const cats=COMBINA[cur.catId]||[], base=price()||0;
+  const pool=Object.values(ALL).filter(p=>cats.includes(p.catId)&&upOK(p)&&p.id!==CAIXINHA_ID&&!p.opts)
+    .sort((a,b)=>Math.abs(a.price-base)-Math.abs(b.price-base));
+  if(pool[0]) out.push(pool[0]);
+  for(const id of MAIS_VENDIDOS){ const p=ALL[id]; if(out.length>=3) break; if(upOK(p)&&!has(id)&&id!==CAIXINHA_ID) out.push(p); }
+  for(const p of pool){ if(out.length>=3) break; if(!has(p.id)) out.push(p); }
+  return out.slice(0,3);
+}
+let upSel=new Set(), upList=[];
+function openUpsell(){
+  upList=pickUpsell(); if(!upList.length) return false;
+  upSel=new Set();
+  let m=document.getElementById("ups");
+  if(!m){ m=document.createElement("div"); m.id="ups"; m.className="ups"; document.body.appendChild(m);
+    m.addEventListener("click",e=>{
+      if(e.target===m||e.target.closest("[data-x]")) return closeUpsell();
+      const b=e.target.closest("[data-add]"); if(b){ const id=b.dataset.add; upSel.has(id)?upSel.delete(id):upSel.add(id); renderUpsell(); return; }
+      if(e.target.closest("[data-go]")) return goWhats(true);
+      if(e.target.closest("[data-skip]")) return goWhats(false);
+    }); }
+  renderUpsell(); requestAnimationFrame(()=>m.classList.add("on"));
+  return true;
+}
+function renderUpsell(){
+  const m=document.getElementById("ups"), total=(price()||0)+upList.filter(p=>upSel.has(p.id)).reduce((a,p)=>a+p.price,0);
+  m.innerHTML=`<div class="ups-in" role="dialog" aria-label="Completa o look">
+    <button class="ups-x" data-x aria-label="Fechar">×</button>
+    <div class="ups-k">Antes de encomendar</div>
+    <h3>Completa o teu look</h3>
+    <div class="ups-l">${upList.map(p=>{const on=upSel.has(p.id);return `<div class="ups-i${on?" on":""}">
+      <img src="img/t/${p.id}.jpg" alt="" loading="lazy">
+      <div class="ups-t"><b>${esc(p.name)}</b><span>${fmt(p.price)}${p.was?` <s>${fmt(p.was)}</s>`:""}</span></div>
+      <button class="ups-a" data-add="${p.id}" aria-pressed="${on}">${on?"✓ Adicionado":"+ Adicionar"}</button></div>`}).join("")}</div>
+    <button class="ups-go" data-go>${upSel.size?`Continuar · ${fmt(total)}`:"Continuar para o WhatsApp"}</button>
+    <button class="ups-sk" data-skip>Não, obrigado</button>
+  </div>`;
+}
+function closeUpsell(){ const m=document.getElementById("ups"); if(m) m.classList.remove("on"); }
+function goWhats(withAdds){
+  const adds=withAdds?upList.filter(p=>upSel.has(p.id)):[];
+  let msg=`Olá MTA Nation! Quero encomendar:\n${ORDER_LINES.join("\n")}`;
+  if(adds.length){
+    msg+=`\n\nAdicionar também:\n`+adds.map(p=>`• ${p.name} — ${fmt(p.price)}${p.sizes?` (${p.sizeLabel||"tamanho"} a confirmar)`:""}${p.mats!==false?` · ${MATS.find(x=>x.id===mat).label}`:""}`).join("\n");
+    const tot=(price()||0)+adds.reduce((a,p)=>a+p.price,0);
+    msg+=`\n\nTotal: ${fmt(tot)}`;
+  }
+  closeUpsell(); location.href=waLink(msg);
+}
+
 const img = (p,i) => `img/${p.id}-${i}.jpg`;
 const esc = s => s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
@@ -662,7 +743,9 @@ function open(id, push=true){
       e.preventDefault();
       const l=sheet.querySelector("#szl"); l.classList.add("err"); l.textContent="Escolhe o tamanho primeiro";
       l.scrollIntoView({behavior:"smooth",block:"center"});
+      return;
     }
+    if(openUpsell()) e.preventDefault();
   });
   sheet.scrollTop=0;
   requestAnimationFrame(()=>showFin(true));
@@ -724,6 +807,7 @@ function setOrder(){
   const lines=[`• ${cur.name}${cur.opts?` (${cur.opts[opt].label})`:""}${price()==null?"":` — ${fmt(price())}${SALE.on&&(cur.opts?cur.opts[opt].was:cur.was)?` (${SALE.label} -${SALE.pct}%)`:""}`}`];
   if(cur.sizes && size>=0) lines.push(`• ${cur.sizeLabel||"Tamanho"}: ${size===cur.sizes.length?"não sei, preciso de ajuda":cur.sizes[size]}`);
   if(cur.mats!==false) lines.push(`• Acabamento: ${MATS.find(x=>x.id===mat).label}`);
+  ORDER_LINES=lines;
   sheet.querySelector("#order").href=waLink(`Olá MTA Nation! Quero encomendar:\n${lines.join("\n")}`);
   { const o=sheet.querySelector("#order"), sn=soldNow(); o.classList.toggle("sold",sn);
     if(sn){ const fin=cur.soldOut?"":` (${MATS.find(x=>x.id===mat).label})`;

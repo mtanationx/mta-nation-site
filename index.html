@@ -424,7 +424,7 @@ const CATS = [
   ]},
   { id:"brincos", name:"Brincos", groups:[
     { title:null, items:[
-      { id:"brincos", name:"Brincos", tag:"Coleção exclusiva", price:1500, imgs:3,
+      { id:"brincos", name:"Brincos", tag:"Coleção exclusiva", price:1500, imgs:6,
         opts:[{label:"1 brinco",price:1500},{label:"2 brincos",price:2500}],
         desc:"É possível adicionar pingentes a um brinco? Na MTA Nation sim!" },
     ]},
@@ -465,6 +465,7 @@ if(SALE.on) CATS.forEach(c=>c.groups.forEach(g=>g.items.forEach(p=>{
 const ALL = {}; CATS.forEach(c=>c.groups.forEach(g=>g.items.forEach(p=>{p.cat=c.name;ALL[p.id]=p})));
 /* which photo shows each finish (photo number) */
 const FIN = {
+  "brincos":{ouro:1,prata:2},
   "anel-quadri":{ouro:1,prata:2},
   "anel-2-barras":{ouro:1},
   "anel-3-barras":{ouro:1},

@@ -133,6 +133,10 @@
   .card .ph{aspect-ratio:1/1;background:#f3f3f3;overflow:hidden;position:relative}
   .card .ph img{mix-blend-mode:multiply}
   .card .ph img{width:100%;height:100%;object-fit:cover}
+  .badge.so{background:#101820}
+  .card.sold .ph img{opacity:.5;filter:grayscale(.6)}
+  .card.sold .go{background:#c9cbcd;color:#fff}
+  .order.sold{background:#101820}
   .badge{position:absolute;top:8px;left:8px;background:#d6302a;color:#fff;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 8px;border-radius:4px}
   .card .tx{padding:10px 12px 12px;display:flex;flex-direction:column;gap:2px;flex:1}
   .card .nm{font-family:Montserrat,Poppins,sans-serif;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.14em;line-height:1.35}
@@ -355,7 +359,7 @@ const CATS = [
     { title:"3mm", items:[
       { id:"rope-3mm", name:"Rope 3mm", tag:"", price:1200, imgs:2, desc:"" },
       { id:"cuban-3mm", name:"Cuban 3mm", tag:"", price:1200, imgs:2, desc:"" },
-      { id:"snake-3mm", name:"Snake 3mm", tag:"", price:1200, imgs:2, desc:"" },
+      { id:"snake-3mm", name:"Snake 3mm", tag:"", price:1200, imgs:2, soldOut:true, desc:"" },
     ]},
     { title:"1mm", items:[
       { id:"wire-1mm", name:"Wire 1mm", tag:"", price:1200, imgs:2, desc:"" },
@@ -521,12 +525,12 @@ main.innerHTML = CATS.map(c=>{
     ${c.intro?`<p class="intro">${esc(c.intro)}</p>`:""}
     ${c.groups.map(g=>`${g.title?`<div class="sub">${g.title}</div>`:""}
       <div class="grid">${g.items.map(p=>`
-        <button class="card" data-p="${p.id}">
+        <button class="card${p.soldOut?" sold":""}" data-p="${p.id}">
           <div class="ph">${p.imgs?`<img src="img/t/${p.id}.jpg" alt="${esc(p.name)}" loading="lazy" decoding="async" width="480" height="480">`:noimg}${badge(p)}</div>
           <div class="tx">
             <span class="nm">${esc(p.name)}</span>
             <span class="tg">${esc(p.tag||"")}</span>
-            <div class="row"><span class="pr">${p.price==null?`<span class="soon">Sob consulta</span>`:`${p.opts?"desde ":""}${fmt(p.price)}${p.was?`<s>${fmt(p.was)}</s>`:""}`}</span><span class="go">QUERO</span></div>
+            <div class="row"><span class="pr">${p.price==null?`<span class="soon">Sob consulta</span>`:`${p.opts?"desde ":""}${fmt(p.price)}${p.was?`<s>${fmt(p.was)}</s>`:""}`}</span><span class="go">${p.soldOut?"ESGOTADO":"QUERO"}</span></div>
           </div>
         </button>`).join("")}</div>`).join("")}
   </section>`;
@@ -564,6 +568,7 @@ document.getElementById("fab").href = waLink("Olá MTA Nation! Vi o vosso catál
 const sheet=document.getElementById("sheet"), scrim=document.getElementById("scrim");
 let cur=null, mat="prata", opt=0, size=0;
 function badge(p){
+  if(p.soldOut) return `<span class="badge so">Esgotado</span>`;
   if(SALE.on && p.was) return `<span class="badge">-${SALE.pct}%</span>`;
   if(p.save) return `<span class="badge">Poupa ${fmt(p.save)}</span>`;
   if(p.was) return `<span class="badge">Poupa ${fmt(p.was-p.price)}</span>`;
@@ -628,6 +633,7 @@ function open(id, push=true){
     sheet.querySelectorAll('input[name="gmode"]').forEach(x=>x.addEventListener("change",calc));
   }
   sheet.querySelector("#order").addEventListener("click",e=>{
+    if(cur.soldOut) return;
     if(cur.sizes && size<0){
       e.preventDefault();
       const l=sheet.querySelector("#szl"); l.classList.add("err"); l.textContent="Escolhe o tamanho primeiro";
@@ -695,6 +701,9 @@ function setOrder(){
   if(cur.sizes && size>=0) lines.push(`• ${cur.sizeLabel||"Tamanho"}: ${size===cur.sizes.length?"não sei, preciso de ajuda":cur.sizes[size]}`);
   if(cur.mats!==false) lines.push(`• Acabamento: ${MATS.find(x=>x.id===mat).label}`);
   sheet.querySelector("#order").href=waLink(`Olá MTA Nation! Quero encomendar:\n${lines.join("\n")}`);
+  { const o=sheet.querySelector("#order"); o.classList.toggle("sold",!!cur.soldOut);
+    if(cur.soldOut){ o.href=waLink(`Olá MTA Nation! Gostava de ser avisado quando o ${cur.name} voltar ao stock.`);
+      o.lastChild.textContent="Esgotado · Avisa-me quando chegar"; } else o.lastChild.textContent="Encomendar pelo WhatsApp"; }
 }
 function close(){
   sheet.classList.remove("on"); scrim.classList.remove("on"); document.body.classList.remove("lock");

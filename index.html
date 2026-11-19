@@ -81,16 +81,16 @@
     .hero.hero-img{background:#050505}
     .hero.hero-img .hfg{left:50%;right:auto;width:auto;max-width:none;transform:translateX(-50%);-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 14%,#000 86%,transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 14%,#000 86%,transparent 100%)}
   }
-  /* Garantias (estilo premium, compacto) */
+  /* Garantias (estilo premium, tamanho reduzido) */
   .trust{max-width:1100px;margin:0 auto;padding:14px 14px 0}
-  .trust-in{background:#fff;border-radius:14px;padding:12px 6px;display:grid;grid-template-columns:repeat(4,1fr)}
-  .ti{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;padding:2px 4px}
-  .ti+.ti{border-left:1px solid #efefef}
-  .tic{flex:none;width:34px;height:34px;border-radius:50%;border:1.5px solid #101820;display:flex;align-items:center;justify-content:center}
-  .tic svg{width:20px;height:20px}
-  .ti b{display:block;font-family:Montserrat,Poppins,sans-serif;font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#101820;line-height:1.35}
-  .ti p{display:none}
-  @media(min-width:900px){.trust-in{padding:6px 18px}.ti{flex-direction:row;align-items:flex-start;text-align:left;gap:12px;padding:14px 10px 14px 16px}.ti b{font-size:10.5px;letter-spacing:.12em}.ti p{display:block;margin-top:3px;font-size:12.5px;line-height:1.4;color:#5a5e62}}
+  .trust-in{background:#fff;border-radius:14px;padding:2px 16px;display:grid;grid-template-columns:1fr}
+  .ti{display:flex;align-items:center;gap:13px;padding:10px 0}
+  .ti+.ti{border-top:1px solid #efefef}
+  .tic{flex:none;width:38px;height:38px;border-radius:50%;border:1.5px solid #101820;display:flex;align-items:center;justify-content:center}
+  .tic svg{width:22px;height:22px}
+  .ti b{display:block;font-family:Montserrat,Poppins,sans-serif;font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#101820}
+  .ti p{margin-top:2px;font-size:12.5px;line-height:1.4;color:#4a4e52}
+  @media(min-width:900px){.trust-in{grid-template-columns:repeat(4,1fr);gap:0 22px;padding:6px 22px}.ti{flex-direction:column;align-items:flex-start;gap:9px;padding:14px 0}.ti+.ti{border-top:0}}
   .perkbar{background:var(--green);color:#fff}
   .perkbar .perks{max-width:1100px;margin:0 auto;padding:12px 18px;justify-content:center;margin-top:0}
   @media(min-width:760px){

@@ -133,6 +133,8 @@
   .card .ph{aspect-ratio:1/1;background:#f3f3f3;overflow:hidden;position:relative}
   .card .ph img{mix-blend-mode:multiply}
   .card .ph img{width:100%;height:100%;object-fit:cover}
+  .mat.matso{color:#8a8d90}
+  .so-tag{font-style:normal;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:#101820;color:#fff;padding:2px 6px;border-radius:4px;margin-left:8px}
   .badge.so{background:#101820}
   .card.sold .ph img{opacity:.5;filter:grayscale(.6)}
   .card.sold .go{background:#c9cbcd;color:#fff}
@@ -338,7 +340,7 @@ const CATS = [
       { id:"fio-cuban-8mm", name:"Cuban Chain 8mm", tag:"Fio", price:2500, imgs:1, desc:"" },
       { id:"fio-cuban-5mm", name:"Cuban Chain 5mm", tag:"Fio", price:1900, imgs:1, desc:"" },
       { id:"fio-cuban-3mm", name:"Cuban Chain 3mm", tag:"Fio", price:1500, imgs:1, desc:"" },
-      { id:"fio-figaro-5mm", name:"Fígaro Chain 5mm", tag:"Fio", price:1900, imgs:1, desc:"" },
+      { id:"fio-figaro-5mm", name:"Fígaro Chain 5mm", tag:"Fio", price:1900, imgs:1, soldOutMats:["ouro"], desc:"" },
       { id:"fio-figaro-3mm", name:"Fígaro Chain 3mm", tag:"Fio", price:1500, imgs:1, desc:"" },
       { id:"fio-rope-3mm", name:"Rope Chain 3mm", tag:"Fio", price:1500, imgs:3, desc:"" },
       { id:"fio-wheat-3mm", name:"Wheat Chain 3mm", tag:"Fio", price:1200, imgs:1, desc:"" },
@@ -597,7 +599,7 @@ function open(id, push=true){
       ${p.opts?`<div class="lbl">Quantidade</div>${chips("opt",p.opts.map(o=>`${o.label} · ${fmt(o.price)}`),opt)}`:""}
       ${p.sizes?`<div class="lblrow"><div class="lbl" id="szl">${p.sizeLabel||"Tamanho"}</div><button class="guide-btn" id="gbtn" type="button">📏 Guia de tamanhos</button></div><div class="guide" id="guide" hidden>${guideHTML(p)}</div>${chips("size",[...p.sizes,"Não sei o meu tamanho"],size)}<p class="szhelp" id="szh" hidden>Sem problema! A nossa equipa ajuda-te a descobrir o teu tamanho pelo WhatsApp.</p>`:""}
       ${p.mats===false?"":`<div class="lbl">Escolhe o acabamento</div>
-      <div class="mats">${MATS.map(m=>`<button class="mat" data-g="mat" data-m="${m.id}" aria-pressed="${m.id===mat}"><i style="background:${m.color}"></i>${m.label}</button>`).join("")}</div>`}
+      <div class="mats">${MATS.map(m=>`<button class="mat${(p.soldOutMats||[]).includes(m.id)?" matso":""}" data-g="mat" data-m="${m.id}" aria-pressed="${m.id===mat}"><i style="background:${m.color}"></i>${m.label}${(p.soldOutMats||[]).includes(m.id)?`<em class="so-tag">Esgotado</em>`:""}</button>`).join("")}</div>`}
       <a class="order" id="order" href="#"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm4.5 12.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.2s.9 2.5 1 2.7c.1.2 1.8 2.8 4.4 3.9 1.6.7 2.3.8 3.1.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z"/></svg>Encomendar pelo WhatsApp</a>
       <p class="note">Pagamento na entrega em Maputo · Enviamos para todas as províncias</p>
       ${p.mats===false?"":`<div class="perks2"><span>Resistente à água e suor</span><span>Entrega imediata</span><span>Cartão de garantia</span></div>`}
@@ -635,7 +637,7 @@ function open(id, push=true){
     sheet.querySelectorAll('input[name="gmode"]').forEach(x=>x.addEventListener("change",calc));
   }
   sheet.querySelector("#order").addEventListener("click",e=>{
-    if(cur.soldOut) return;
+    if(soldNow()) return;
     if(cur.sizes && size<0){
       e.preventDefault();
       const l=sheet.querySelector("#szl"); l.classList.add("err"); l.textContent="Escolhe o tamanho primeiro";
@@ -703,10 +705,12 @@ function setOrder(){
   if(cur.sizes && size>=0) lines.push(`• ${cur.sizeLabel||"Tamanho"}: ${size===cur.sizes.length?"não sei, preciso de ajuda":cur.sizes[size]}`);
   if(cur.mats!==false) lines.push(`• Acabamento: ${MATS.find(x=>x.id===mat).label}`);
   sheet.querySelector("#order").href=waLink(`Olá MTA Nation! Quero encomendar:\n${lines.join("\n")}`);
-  { const o=sheet.querySelector("#order"); o.classList.toggle("sold",!!cur.soldOut);
-    if(cur.soldOut){ o.href=waLink(`Olá MTA Nation! Gostava de ser avisado quando o ${cur.name} voltar ao stock.`);
+  { const o=sheet.querySelector("#order"), sn=soldNow(); o.classList.toggle("sold",sn);
+    if(sn){ const fin=cur.soldOut?"":` (${MATS.find(x=>x.id===mat).label})`;
+      o.href=waLink(`Olá MTA Nation! Gostava de ser avisado quando o ${cur.name}${fin} voltar ao stock.`);
       o.lastChild.textContent="Esgotado · Avisa-me quando chegar"; } else o.lastChild.textContent="Encomendar pelo WhatsApp"; }
 }
+function soldNow(){ return !!cur && (!!cur.soldOut || (cur.mats!==false && (cur.soldOutMats||[]).includes(mat))); }
 function close(){
   sheet.classList.remove("on"); scrim.classList.remove("on"); document.body.classList.remove("lock");
   if(location.hash) history.replaceState(null,"",location.pathname+location.search);

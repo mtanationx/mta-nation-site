@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MTA Nation — Catálogo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --green:#101820; --dark:#101820; --green-2:#1c2833; --ink:#111; --muted:#6b6f6c;
+    --bg:#f4f5f7; --card:#fff; --line:#e3e5e8; --gold:#c9a24a; --wa:#1fa855;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:Poppins,system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+  img{display:block;max-width:100%}
+  button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+  a{color:inherit}
+
+  /* Header */
+  .top{background:var(--dark);color:#fff;position:sticky;top:0;z-index:20}
+  .top-in{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:10px 18px}
+  .top img{height:46px;width:auto}
+  .top .ig{font-size:12px;font-weight:600;letter-spacing:.06em;text-decoration:none;border:1px solid rgba(255,255,255,.35);padding:7px 12px;border-radius:999px}
+  .tabs{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:58px;z-index:19}
+  .tabs-in{max-width:1100px;margin:0 auto;display:flex;gap:8px;padding:10px 18px;overflow-x:auto;scrollbar-width:none}
+  .tabs-in::-webkit-scrollbar{display:none}
+  .tabs-in{position:relative;scroll-behavior:smooth}
+  @media(min-width:900px){.tabs-in{justify-content:center}}
+  .tfade{position:absolute;top:0;bottom:1px;width:56px;pointer-events:none;opacity:0;transition:opacity .2s;display:flex;align-items:center;z-index:2}
+  .tfade.l{left:0;background:linear-gradient(90deg,#fff 30%,rgba(255,255,255,0))}
+  .tfade.r{right:0;justify-content:flex-end;padding-right:8px;background:linear-gradient(270deg,#fff 45%,rgba(255,255,255,0))}
+  .tfade.on{opacity:1}
+  .tfade.r.on{pointer-events:auto}
+  .tfade button{width:30px;height:30px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+  .tfade button svg{width:14px;height:14px}
+  .tab{white-space:nowrap;font-size:14px;font-weight:500;letter-spacing:.01em;padding:9px 18px;border-radius:14px;background:#f2f2f2;color:#111;transition:background .2s,color .2s}
+  .tab[aria-pressed="true"]{background:var(--green);color:#fff}
+
+  /* Barra de anúncio */
+  .ann{background:#000;color:#fff;display:none}
+  .ann.on{display:block}
+  .ann-in{max-width:1100px;margin:0 auto;padding:8px 14px;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap}
+  .ann .t{font-size:13px;letter-spacing:.04em;text-transform:uppercase}
+  .ann .t b{font-weight:800}
+  .ann .clk{display:flex;align-items:flex-start;gap:4px;font-variant-numeric:tabular-nums}
+  .ann .u{text-align:center;min-width:28px}
+  .ann .u b{display:block;font-size:17px;font-weight:700;line-height:1.1}
+  .ann .u small{display:block;font-size:9px;opacity:.7;letter-spacing:.04em}
+  .ann .sep{font-weight:700;font-size:16px;line-height:1.1}
+  .ann a{background:#d6302a;color:#fff;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;padding:8px 14px;border-radius:4px}
+  @media(max-width:520px){.ann-in{gap:8px 12px;padding:8px 10px}.ann .t{font-size:11px;width:100%;text-align:center}.ann a{padding:7px 12px}}
+  /* Hero banner */
+  .vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .hero{position:relative;color:#fff;background:#0b1117;overflow:hidden;height:min(122vw,620px);min-height:440px}
+  .hero .slides{position:absolute;inset:0}
+  .hero .slides picture{display:contents}
+  .hero .slides img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.6s ease;transform:scale(1.06)}
+  .hero .slides img.on{opacity:1;animation:kb 9s ease-out forwards}
+  @keyframes kb{from{transform:scale(1.06)}to{transform:scale(1)}}
+  @media(prefers-reduced-motion:reduce){.hero .slides img.on{animation:none;transform:none}}
+  .hero:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(16,24,32,0) 60%,rgba(16,24,32,.55) 100%)}
+  .hero-in{position:absolute;left:0;right:0;bottom:0;z-index:1;max-width:1100px;margin:0 auto;padding:0 18px 26px;text-align:center;display:flex;flex-direction:column;align-items:center}
+  .hero .sdots{justify-content:center}
+  .hero .cta{border-radius:4px;padding:15px 34px}
+  .hero .kick{font-family:Montserrat,Poppins,sans-serif;font-size:11px;font-weight:600;letter-spacing:.32em;text-transform:uppercase;color:#e2bf6a;text-shadow:0 1px 8px rgba(0,0,0,.35)}
+  .hero h1{font-family:Montserrat,Poppins,sans-serif;font-size:clamp(34px,9vw,58px);font-weight:700;line-height:1.02;letter-spacing:.06em;margin-top:8px}
+  .hero p{margin-top:10px;max-width:440px;color:rgba(255,255,255,.85);font-size:14px;line-height:1.6}
+  .hero .cta{display:inline-flex;align-items:center;gap:8px;margin-top:16px;background:#fff;color:var(--green);font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase;text-decoration:none;padding:13px 22px;border-radius:999px}
+  .hero .sdots{display:flex;gap:6px;margin-top:18px}
+  .hero .sdots i{width:18px;height:2px;background:rgba(255,255,255,.35);border-radius:2px;transition:background .3s}
+  .hero .sdots i.on{background:#fff}
+  .perkbar{background:var(--green);color:#fff}
+  .perkbar .perks{max-width:1100px;margin:0 auto;padding:12px 18px;justify-content:center;margin-top:0}
+  @media(min-width:760px){
+    .hero{height:600px}
+    .hero .slides img{object-position:50% 25%!important}
+    .hero:after{background:linear-gradient(180deg,rgba(0,0,0,0) 65%,rgba(0,0,0,.4) 100%)}
+    .hero-in{text-align:center;display:flex;flex-direction:column;align-items:center;padding:0 18px 56px}
+    .hero p{margin-left:auto;margin-right:auto}
+    .hero .sdots{display:none}
+  }
+  .perks{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+  .perk{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;border:1px solid rgba(255,255,255,.25);padding:6px 10px;border-radius:6px;display:flex;align-items:center;gap:6px}
+  .perk svg{width:14px;height:14px;flex:none}
+
+  /* Sections */
+  main{max-width:1100px;margin:0 auto;padding:6px 14px 40px}
+  section.cat{padding-top:26px;scroll-margin-top:118px}
+  html,body{overflow-x:clip}
+  .cbn{overflow:hidden;margin:0 0 18px calc(50% - 50vw);width:100vw;aspect-ratio:5/2;background:#e9e9e9}
+  @media(min-width:760px){.cbn{aspect-ratio:4/1;max-height:380px}}
+  .cbn{position:relative}
+  .cbn picture{display:block;width:100%;height:100%}.cbn img{width:100%;height:100%;object-fit:cover;display:block}
+  .cbn:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(16,24,32,.72) 0%,rgba(16,24,32,.35) 38%,rgba(16,24,32,0) 65%)}
+  .cbn.plain{background:var(--dark)}
+  .cbn.plain:after{display:none}
+  .cbn.plain .bt h2{text-shadow:none}
+  .cbn .bt{position:absolute;z-index:1;left:0;right:0;top:50%;transform:translateY(-50%);max-width:1100px;margin:0 auto;padding:0 22px;color:#fff}
+  .cbn .bt h2{font-family:Montserrat,Poppins,sans-serif;font-size:clamp(30px,8vw,48px);font-weight:700;line-height:1.05;letter-spacing:-.005em;text-shadow:0 2px 14px rgba(0,0,0,.25)}
+  .cbn .bt span{display:block;margin-top:6px;font-size:13px;letter-spacing:.08em;opacity:.85}
+  .cat-h{display:flex;align-items:baseline;justify-content:space-between;padding:0 4px 12px}
+  .cat-h h2{font-family:Montserrat,Poppins,sans-serif;font-size:30px;font-weight:700;letter-spacing:-.005em;line-height:1.1}
+  .cat-h span{font-size:12px;color:var(--muted)}
+  .sub{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:14px 4px 10px}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  @media(min-width:640px){.grid{grid-template-columns:repeat(3,1fr);gap:14px}}
+  @media(min-width:960px){.grid{grid-template-columns:repeat(4,1fr)}}
+
+  .card{background:var(--card);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;text-align:left;box-shadow:0 1px 2px rgba(0,0,0,.05);transition:transform .15s ease}
+  .card:active{transform:scale(.98)}
+  .card .ph{aspect-ratio:1/1;background:#f3f3f3;overflow:hidden;position:relative}
+  .card .ph img{mix-blend-mode:multiply}
+  .card .ph img{width:100%;height:100%;object-fit:cover}
+  .badge{position:absolute;top:8px;left:8px;background:#d6302a;color:#fff;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 8px;border-radius:4px}
+  .card .tx{padding:10px 12px 12px;display:flex;flex-direction:column;gap:2px;flex:1}
+  .card .nm{font-family:Montserrat,Poppins,sans-serif;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.14em;line-height:1.35}
+  .card .tg{font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;min-height:16px}
+  .card .row{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .card .pr{font-weight:500;font-size:14px;letter-spacing:.02em}
+  .card .go{font-size:11px;font-weight:700;letter-spacing:.06em;background:var(--ink);color:#fff;padding:7px 12px;border-radius:999px}
+
+  /* Info */
+  .info{max-width:1100px;margin:0 auto;padding:0 14px 30px;display:grid;gap:10px}
+  @media(min-width:760px){.info{grid-template-columns:repeat(3,1fr)}}
+  .box{background:#fff;border-radius:12px;padding:18px}
+  .box h3{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+  .box p{font-size:13px;line-height:1.6;color:#333}
+  .box a.lnk{display:inline-block;margin-top:10px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+  footer{background:var(--dark);color:rgba(255,255,255,.75);text-align:center;font-size:12px;padding:22px 18px 90px}
+  footer b{color:#fff}
+
+  /* Floating WhatsApp */
+  .fab{position:fixed;right:16px;bottom:16px;z-index:30;background:var(--wa);color:#fff;text-decoration:none;font-weight:700;font-size:13px;padding:12px 16px;border-radius:999px;display:flex;align-items:center;gap:8px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+  .fab svg{width:20px;height:20px}
+
+  /* Sheet */
+  .scrim{position:fixed;inset:0;background:rgba(11,17,23,.94);z-index:40;opacity:0;pointer-events:none;transition:opacity .2s}
+  .scrim.on{opacity:1;pointer-events:auto}
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;background:transparent;border-radius:18px 18px 0 0;max-height:92vh;overflow-y:auto;transform:translateY(100%);transition:transform .25s ease;max-width:560px;margin:0 auto}
+  .sheet.on{transform:none}
+  @media(min-width:760px){.sheet{bottom:auto;top:50%;border-radius:18px;transform:translateY(-40%) scale(.97);opacity:0;pointer-events:none;transition:all .2s}.sheet.on{transform:translateY(-50%);opacity:1;pointer-events:auto}}
+  .x{position:absolute;top:10px;right:10px;z-index:2;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.92);font-size:22px;line-height:36px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+  .gal{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;background:#f3f3f3}
+  .gal img{mix-blend-mode:multiply}
+  .sheet{border-radius:0;clip-path:inset(0 round 18px 18px 0 0);-webkit-clip-path:inset(0 round 18px 18px 0 0)}
+  @media(min-width:760px){.sheet{clip-path:inset(0 round 18px);-webkit-clip-path:inset(0 round 18px)}}
+  .gal::-webkit-scrollbar{display:none}
+  .gal img{flex:none;width:100%;aspect-ratio:1/1;object-fit:cover;scroll-snap-align:center}
+  .dots{background:#fff;display:flex;justify-content:center;gap:6px;padding:10px 0 0}
+  .dots i{width:6px;height:6px;border-radius:50%;background:#ccc}
+  .dots i.on{background:var(--green)}
+  .sb{padding:14px 20px 24px;background:#fff}
+  .sb .tg{font-size:11px;letter-spacing:.3em;font-weight:700;color:var(--muted);text-transform:uppercase}
+  .sb h2{font-family:Montserrat,Poppins,sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;margin-top:4px;line-height:1.3}
+  .sb .pr{font-size:18px;font-weight:500;margin-top:6px;letter-spacing:.03em}
+  .sb .ds{font-size:14px;line-height:1.65;color:#333;margin-top:12px;white-space:pre-line}
+  .lbl{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin:18px 0 8px}
+  .mats{display:flex;gap:8px;flex-wrap:wrap}
+  .mat{display:flex;align-items:center;gap:8px;border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;font-size:12px;font-weight:600}
+  .mat i{width:20px;height:20px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+  .mat[aria-pressed="true"]{border-color:var(--ink)}
+  .order{margin-top:20px;display:flex;align-items:center;justify-content:center;gap:10px;background:var(--wa);color:#fff;text-decoration:none;font-weight:700;font-size:15px;padding:15px;border-radius:12px}
+  .order svg{width:22px;height:22px}
+  .note{font-size:12px;color:var(--muted);text-align:center;margin-top:10px}
+  .perks2{display:flex;justify-content:space-between;gap:6px;margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+  .perks2 span{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#444;text-align:center;flex:1}
+  body.lock{overflow:hidden}
+  .lbl.err{color:#c0392b}
+  .badge.new{background:var(--gold);color:#111}
+  .card .soon{font-size:12px;color:var(--muted);font-weight:500}
+  .lblrow{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .guide-btn{font-size:12px;font-weight:600;color:var(--green);text-decoration:underline;padding:4px 0}
+  .guide-btn.on{text-decoration:none}
+  .guide{background:#f4f5f7;border-radius:12px;padding:14px;margin:4px 0 10px;font-size:13px;line-height:1.55;color:#333}
+  .guide p{margin-bottom:8px}
+  .guide table{width:100%;border-collapse:collapse;margin:6px 0 12px;background:#fff;border-radius:8px;overflow:hidden}
+  .guide th,.guide td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--line);font-size:12px}
+  .guide th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .gcalc{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .gcalc label{font-size:12px;display:flex;gap:4px;align-items:center}
+  .gcalc input[type=radio]{accent-color:var(--green)}
+  #gmm{flex:1 1 100%;font:inherit;font-size:16px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff}
+  .gout{margin-top:10px;font-size:14px}
+  .gpick{margin-left:8px;font-size:12px;font-weight:700;background:var(--green);color:#fff;padding:6px 12px;border-radius:999px}
+  .gnote{font-size:12px;color:var(--muted)}
+  .gimg{padding:14px 18px;box-sizing:border-box}
+  .gsvg{display:block;width:100%;max-width:300px;height:auto;margin:4px auto 16px;background:#fff;border-radius:10px;padding:8px 0}
+  .szhelp{font-size:12px;color:var(--green);background:#eceef1;border-radius:8px;padding:8px 10px;margin-top:8px}
+  .mats .mat:not([data-g="mat"]){min-width:44px;justify-content:center}
+  .noimg{width:100%;height:100%;background:var(--green);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:rgba(255,255,255,.7);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+  .noimg img{width:40%;height:auto;object-fit:contain}
+  .gal .noimg.big{flex:none;width:100%;aspect-ratio:1/1}
+  .gal .noimg.big .noimg{aspect-ratio:auto}
+  .intro{font-size:13px;color:var(--muted);padding:0 4px 8px;margin-top:-6px}
+  .card .pr s,.sb .pr s{font-weight:400;color:var(--muted);font-size:.8em;margin-left:6px}
+  .sb .pr em{font-style:normal;font-size:12px;font-weight:700;background:#d6302a;color:#fff;padding:3px 8px;border-radius:4px;margin-left:8px;vertical-align:middle}
+</style>
+</head>
+<body>
+
+<div class="ann" id="ann">
+  <div class="ann-in">
+    <span class="t" id="ann-t"></span>
+    <span class="clk" aria-label="Tempo restante">
+      <b id="cd-d" hidden></b><span class="u"><b id="cd-h">00</b><small>Horas</small></span><span class="sep">:</span>
+      <span class="u"><b id="cd-m">00</b><small>Min</small></span><span class="sep">:</span>
+      <span class="u"><b id="cd-s">00</b><small>Seg</small></span>
+    </span>
+    <a href="#main" id="ann-a">Ver promoção</a>
+  </div>
+</div>
+
+<header class="top">
+  <div class="top-in">
+    <img src="img/logo.png" alt="MTA Nation">
+    <a class="ig" href="https://www.instagram.com/mta.nation/">Instagram</a>
+  </div>
+</header>
+
+<nav class="tabs" aria-label="Categorias">
+  <span class="tfade l" id="tfl"></span>
+  <div class="tabs-in" id="tabs"></div>
+  <span class="tfade r" id="tfr"><button type="button" aria-label="Mais categorias"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button></span>
+</nav>
+
+<div class="hero">
+  <div class="slides" id="slides">
+    <picture><!-- computador: --><source media="(min-width:760px)" srcset="img/perola-3mm-2.jpg"><img class="on" src="img/perola-3mm-2.jpg" alt="" style="object-position:50% 20%"></picture>
+  </div>
+  <div class="hero-in">
+    <h1 class="vh">MTA Nation · Catálogo 2026</h1>
+    <a class="cta" href="#main" id="cta">Ver coleção <span aria-hidden="true">→</span></a>
+  </div>
+</div>
+<div class="perkbar">
+  <div class="perks">
+      <span class="perk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.7s6 6.6 6 11.3a6 6 0 0 1-12 0c0-4.7 6-11.3 6-11.3z"/></svg>Resistente à água e suor</span>
+      <span class="perk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/></svg>Anti-alérgico</span>
+      <span class="perk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg>Entrega imediata</span>
+    </div>
+</div>
+
+<main id="main"></main>
+
+<div class="info">
+  <div class="box">
+    <h3>Enviamos para todas as províncias</h3>
+    <p>Há mais de 5 anos que enviamos para todo o país através do nosso parceiro de confiança, Portador Diário. Clientes das províncias pagam a totalidade antes do envio.</p>
+  </div>
+  <div class="box">
+    <h3>Pagamento</h3>
+    <p>Em Maputo, pagas de forma segura no momento da entrega. Também é possível pagar em parcelas ou reservar uma peça com 30% do valor. Fala com a nossa equipa no WhatsApp.</p>
+  </div>
+  <div class="box">
+    <h3>Visita-nos</h3>
+    <p>Glória Mall, Quiosque Nº8<br>Avenida Marginal, Maputo<br>Ao lado do Hotel Radisson</p>
+    <a class="lnk" href="https://maps.app.goo.gl/SPDzVdHfGkHx66FX8">Ver no mapa →</a>
+  </div>
+</div>
+
+<footer>
+  <b>MTA Nation</b> · WhatsApp +258 87 516 5875<br>
+  Todas as peças incluem embalagem e cartão de garantia. · ©2026 MTA Nation
+</footer>
+
+<a class="fab" id="fab" href="#"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.2s.9 2.5 1 2.7c.1.2 1.8 2.8 4.4 3.9 1.6.7 2.3.8 3.1.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z"/></svg>Fala connosco</a>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Produto"></div>
+
+<script>
+const WA = "258875165875";
+const waLink = msg => "https://wa.me/" + WA + "?text=" + encodeURIComponent(msg);
+
+const CATS = [
+  { id:"pingentes", name:"Pingentes", groups:[
+    { title:null, items:[
+      { id:"bussola", name:"Bússola", tag:"Keep going", price:1500, imgs:3,
+        desc:"Para quem está alinhado ao seu PROPÓSITO e sabe para onde vai!\nEste colar representa DIREÇÃO e FOCO!" },
+      { id:"crucifixo", name:"Crucifixo", tag:"Keep the faith", price:1500, imgs:3,
+        desc:"Um símbolo de PROTEÇÃO. Um pingente que relembra os princípios que te guiam todos os dias.\nRepresenta DEVOÇÃO, FÉ e VALORES!" },
+      { id:"cupido", name:"Cupido", tag:"", price:1700, imgs:5,
+        desc:"O Cupido da MTA Nation não traz apenas uma mensagem. Traz a ARMADURA necessária para as batalhas do dia a dia.\nRepresenta a RESILIÊNCIA de quem ama de forma INTENSA e protege ferozmente." },
+      { id:"vault", name:"Vault", tag:"", price:1700, imgs:3,
+        desc:"Usado no corpo. Sentido na ALMA!\nDesign MINIMALISTA, símbolo de ESTABILIDADE. Quer seja usado como peça única ou em conjunto, é a escolha PERFEITA para qualquer ocasião." },
+      { id:"rosa", name:"Rosa", tag:"Love is good", price:1500, imgs:3,
+        desc:"A rosa que dura para SEMPRE!\nPeça unissexo e moderna. Representa PAIXÃO e PROSPERIDADE." },
+      { id:"northstar", name:"North Star", tag:"Follow your truth", price:1700, imgs:3,
+        desc:"Segue a tua verdade, um pingente que relembra quem TU ÉS!\nRepresenta HONESTIDADE e PROPÓSITO!" },
+      { id:"leao", name:"Leão", tag:"Desperta o leão", price:1700, imgs:3,
+        desc:"Para quem enfrenta as batalhas diárias com CORAGEM e FORÇA.\nRepresenta a essência do PODER e da AUTORIDADE!" },
+      { id:"cristo", name:"Cristo", tag:"Eleva a tua frequência", price:1500, imgs:3,
+        desc:"Carrega CRISTO no teu peito.\nEste pingente canaliza a LUZ e a SABEDORIA ancestral, um escudo energético para a tua AURA!" },
+      { id:"colar-touch-of-god", name:"Touch of God", tag:"Novo", price:1700, isNew:true, imgs:3, desc:"" },
+      { id:"colar-cruz", name:"Cruz", tag:"Novo", price:1700, isNew:true, imgs:3, desc:"" },
+      { id:"colar-asa", name:"Asa", tag:"", price:1500, imgs:3, desc:"" },
+      { id:"colar-anjo", name:"Anjo", tag:"", price:1500, imgs:3, desc:"" },
+      { id:"colar-medusa", name:"Medusa", tag:"", price:1500, imgs:2, desc:"" },
+      { id:"colar-davinci", name:"DaVinci", tag:"", price:1500, imgs:2, desc:"" },
+    ]},
+    { title:"Pedra", items:[
+      { id:"onyx-pedra", name:"Onyx", tag:"Pedra", price:1700, imgs:2, desc:"" },
+      { id:"jade", name:"Jade", tag:"Pedra", price:1900, imgs:2, desc:"" },
+      { id:"monolith", name:"Monolith", tag:"Pedra", price:1900, imgs:2, desc:"" },
+      { id:"sand-stone", name:"Sand Stone", tag:"Pedra", price:1900, isNew:true, imgs:2, desc:"" },
+    ]},
+  ]},
+  { id:"colares", name:"Colares", groups:[
+    { title:null, items:[
+      { id:"fio-cuban-8mm", name:"Cuban Chain 8mm", tag:"Fio", price:2500, imgs:1, desc:"" },
+      { id:"fio-cuban-5mm", name:"Cuban Chain 5mm", tag:"Fio", price:1900, imgs:1, desc:"" },
+      { id:"fio-cuban-3mm", name:"Cuban Chain 3mm", tag:"Fio", price:1500, imgs:1, desc:"" },
+      { id:"fio-figaro-5mm", name:"Fígaro Chain 5mm", tag:"Fio", price:1900, imgs:1, desc:"" },
+      { id:"fio-figaro-3mm", name:"Fígaro Chain 3mm", tag:"Fio", price:1500, imgs:1, desc:"" },
+      { id:"fio-rope-3mm", name:"Rope Chain 3mm", tag:"Fio", price:1500, imgs:3, desc:"" },
+      { id:"fio-wheat-3mm", name:"Wheat Chain 3mm", tag:"Fio", price:1200, imgs:1, desc:"" },
+      { id:"fio-curb-2mm", name:"Curb Chain 2mm", tag:"Fio", price:850, imgs:1, desc:"" },
+      { id:"fio-clip", name:"Clip Chain", tag:"Fio", price:1200, imgs:2, desc:"" },
+    ]},
+  ]},
+  { id:"mascotes", name:"Mascotes", groups:[
+    { title:"8mm", items:[
+      { id:"cuban-8mm", name:"Cuban 8mm", tag:"Mascotes que criam presença", price:2000, imgs:3, sizes:["19cm","21cm","23cm"],
+        desc:"Com este mascote jamais irás passar despercebido.\nIdeal para quem prioriza peças que marcam PRESENÇA!" },
+    ]},
+    { title:"5mm", items:[
+      { id:"cuban-5mm", name:"Cuban 5mm", tag:"", price:1500, imgs:2, desc:"" },
+      { id:"figaro-5mm", name:"Fígaro 5mm", tag:"", price:1500, imgs:2, desc:"" },
+      { id:"rope-5mm", name:"Rope 5mm", tag:"", price:1500, imgs:1, desc:"" },
+    ]},
+    { title:"3mm", items:[
+      { id:"rope-3mm", name:"Rope 3mm", tag:"", price:1200, imgs:2, desc:"" },
+      { id:"cuban-3mm", name:"Cuban 3mm", tag:"", price:1200, imgs:2, desc:"" },
+      { id:"snake-3mm", name:"Snake 3mm", tag:"", price:1200, imgs:2, desc:"" },
+    ]},
+    { title:"1mm", items:[
+      { id:"wire-1mm", name:"Wire 1mm", tag:"", price:1200, imgs:2, desc:"" },
+      { id:"box-1mm", name:"Box 1mm", tag:"", price:1200, imgs:2, desc:"" },
+      { id:"snake-1mm", name:"Snake 1mm", tag:"", price:1200, imgs:2, desc:"" },
+      { id:"mascote-2em1", name:"2 em 1", tag:"Box Chain x Snake Chain", price:1700, isNew:true, imgs:6, desc:"Box Chain x Snake Chain" },
+    ]},
+  ]},
+  { id:"aneis", name:"Anéis", groups:[
+    { title:null, items:[
+      { id:"davinci", name:"Anel DaVinci", tag:"Perfeição", price:2000, imgs:2,
+        desc:"A famosa obra de arte de Leonardo da Vinci agora nos teus dedos.\nIdeal para quem prioriza a PERFEIÇÃO!" },
+      { id:"grego", name:"Anel Grego", tag:"Autoridade", price:2000, imgs:2,
+        desc:"Um anel que fala por ti antes mesmo de dizeres uma palavra.\nIdeal para quem prioriza a AUTORIDADE!" },
+      { id:"anel-onyx", name:"Anel Onyx", tag:"Classe", price:1500, imgs:1,
+        desc:"Se queres algo mais discreto, mas impossível de ignorar.\nIdeal para quem prioriza a CLASSE e SOFISTICAÇÃO!" },
+      { id:"void", name:"Anel Void", tag:"Respeito", price:2500, imgs:2,
+        desc:"Um design moderno que impõe RESPEITO imediato em qualquer lugar!\nIdeal para quem procura AUTORIDADE!" },
+      { id:"rope", name:"Anel Rope", tag:"Atitude", price:1500, imgs:4,
+        desc:"Um design mais minimalista mas com detalhes que transbordam e reflectem ATITUDE!" },
+      { id:"figaro", name:"Anel Fígaro", tag:"", price:1500, imgs:1, desc:"" },
+      { id:"fusion", name:"Anel Fusion", tag:"", price:1700, imgs:1, desc:"" },
+      { id:"cruz", name:"Anel Cruz", tag:"", price:1700, imgs:1, desc:"" },
+      { id:"drill", name:"Anel Drill", tag:"", price:1700, imgs:2, desc:"" },
+      { id:"anel-2mm", name:"Anel 2mm", tag:"Clássico", price:1500, imgs:3, desc:"" },
+      { id:"anel-4mm", name:"Anel 4mm", tag:"Clássico", price:1500, imgs:1, desc:"" },
+      { id:"anel-touch-of-god", name:"Anel Touch of God", tag:"Novo", price:1700, isNew:true, imgs:3, desc:"" },
+      { id:"anel-quadri", name:"Anel Quadri Pedra Preta", tag:"", price:1500, imgs:3, desc:"" },
+      { id:"anel-2-barras", name:"Anel 2 Barras", tag:"", price:1500, imgs:2, desc:"" },
+      { id:"anel-3-barras", name:"Anel 3 Barras", tag:"", price:1500, imgs:2, desc:"" },
+    ]},
+  ]},
+  { id:"perolas", name:"Pérolas", groups:[
+    { title:"Colares", items:[
+      { id:"perola-3mm", name:"Colar Pérola 3mm", tag:"Pérolas", price:1200, imgs:2, mats:false, desc:"" },
+      { id:"perola-5mm", name:"Colar Pérola 5mm", tag:"Pérolas", price:1500, imgs:1, mats:false, desc:"" },
+      { id:"perola-crucifixo", name:"Colar Pérola com Crucifixo", tag:"Pérolas + pingente", price:2000, imgs:2, desc:"" },
+      { id:"perola-bussola", name:"Colar Pérola com Bússola", tag:"Pérolas + pingente", price:2000, imgs:2, desc:"" },
+    ]},
+    { title:"Mascotes", items:[
+      { id:"mascote-perola-3mm", name:"Mascote Pérola 3mm", tag:"Pérolas", price:1200, imgs:2, mats:false, sizes:["19cm","21cm"], sizeLabel:"Tamanho do mascote", desc:"" },
+      { id:"mascote-perola-cuban", name:"Mascote Pérola com Cuban", tag:"Pérolas + Cuban", price:1500, imgs:3, sizes:["19cm","21cm"], sizeLabel:"Tamanho do mascote", desc:"" },
+    ]},
+  ]},
+  { id:"conjuntos", name:"Conjuntos", intro:"Cria um conjunto e beneficia de descontos incríveis!", groups:[
+    { title:null, items:[
+      { id:"conj-cuban-8mm", name:"Conjunto Cuban 8mm", tag:"Colar + mascote", price:3500, save:1000, imgs:1,
+        desc:"O conjunto que TODO o HOMEM deveria ter!" },
+      { id:"conj-cuban-5mm", name:"Conjunto Cuban 5mm", tag:"Colar + mascote", price:2900, save:500, imgs:1,
+        desc:"Grossura ideal para usar no dia a dia!" },
+      { id:"conj-cuban-3mm", name:"Conjunto Cuban 3mm", tag:"Colar + mascote", price:2500, save:1000, imgs:1,
+        desc:"Para quem procura algo minimalista, este conjunto é PERFEITO!" },
+      { id:"conj-figaro-5mm", name:"Conjunto Fígaro 5mm", tag:"Colar + mascote", price:2900, save:500, imgs:1,
+        desc:"O clássico! Chegou a tua hora de BRILHAR!" },
+      { id:"conj-pingente", name:"Conjunto Pingente", tag:"Pingente + colar 3mm", price:2200, save:500, imgs:1,
+        desc:"Escolhe um fio com pingente e adiciona um colar 3mm." },
+      { id:"conj-colar-mascote", name:"Colar & Mascote", tag:"Pingente + mascote 5mm", price:2500, save:500, imgs:0,
+        desc:"Adiciona qualquer colar com pingente + mascote 5mm." },
+      { id:"conj-colar-anel", name:"Colar + Anel", tag:"Pingente + anel", price:2500, save:700, imgs:0,
+        desc:"Adiciona qualquer colar com pingente + 1 anel." },
+    ]},
+  ]},
+  { id:"brincos", name:"Brincos", groups:[
+    { title:null, items:[
+      { id:"brincos", name:"Brincos", tag:"Coleção exclusiva", price:1500, imgs:3,
+        opts:[{label:"1 brinco",price:1500},{label:"2 brincos",price:2500}],
+        desc:"É possível adicionar pingentes a um brinco? Na MTA Nation sim!" },
+    ]},
+  ]},
+  { id:"caixinha-mta", name:"Caixinha MTA", groups:[
+    { title:null, items:[
+      { id:"caixa-5", name:"Caixa MTA 5 peças", tag:"Porta-jóias incluído", price:5997, was:8500, save:2500, imgs:2, mats:false,
+        desc:"Cria a tua caixa MTA: escolhe 5 peças e recebe-as num porta-jóias." },
+      { id:"caixa-7", name:"Caixa MTA 7 peças", tag:"Porta-jóias incluído", price:6997, was:12500, imgs:2, mats:false,
+        desc:"Cria a tua caixa MTA: escolhe 7 peças e recebe-as num porta-jóias." },
+      { id:"caixinha", name:"Caixinha Luxuosa", tag:"Para a tua encomenda", price:150, imgs:2, mats:false,
+        desc:"Ideal para presentes, alta qualidade, fecho magnético.\nDá um TOQUE à tua ENCOMENDA e torna o teu presente uma EXPERIÊNCIA INESQUECÍVEL!" },
+      { id:"porta-joias", name:"Porta Jóias MTA", tag:"Compacto e elegante", price:800, imgs:1, mats:false, desc:"O lugar certo para as tuas peças MTA.\nInterior aveludado com divisórias para anéis e ganchos para colares, que evitam riscos e nós. Fecho de correr e tamanho compacto, perfeito para viagens ou para oferecer.\nGuarda o teu BRILHO onde quer que vás!" },
+    ]},
+  ]},
+];
+
+const MATS = [
+  { id:"prata", label:"Aço inoxidável 316L", color:"url(img/swatch-prata.jpg) center/cover" },
+  { id:"ouro",  label:"Banhado a ouro 18K",  color:"url(img/swatch-ouro.jpg) center/cover" },
+];
+// Categorias escondidas por agora (voltam mais tarde)
+const HIDDEN_CATS=["conjuntos"];
+for(let i=CATS.length-1;i>=0;i--) if(HIDDEN_CATS.includes(CATS[i].id)) CATS.splice(i,1);
+// Produtos escondidos por agora
+const HIDDEN_IDS=["caixa-5","caixa-7"];
+CATS.forEach(c=>c.groups.forEach(g=>{g.items=g.items.filter(p=>!HIDDEN_IDS.includes(p.id))}));
+for(let i=CATS.length-1;i>=0;i--){CATS[i].groups=CATS[i].groups.filter(g=>g.items.length); if(!CATS[i].groups.length) CATS.splice(i,1);}
+// ===== PROMOÇÃO DE PREÇOS =====
+// on:true aplica o desconto a todos os produtos visíveis; on:false volta aos preços normais.
+const SALE={ on:true, pct:50, label:"Black Friday" };
+if(SALE.on) CATS.forEach(c=>c.groups.forEach(g=>g.items.forEach(p=>{
+  if(p.price==null) return;
+  const cut=v=>Math.round(v*(100-SALE.pct)/100);
+  p.was=p.price; p.price=cut(p.price); delete p.save;
+  if(p.opts) p.opts=p.opts.map(o=>({...o, was:o.price, price:cut(o.price)}));
+})));
+const ALL = {}; CATS.forEach(c=>c.groups.forEach(g=>g.items.forEach(p=>{p.cat=c.name;ALL[p.id]=p})));
+/* which photo shows each finish (photo number) */
+const FIN = {
+  "anel-quadri":{ouro:1,prata:2},
+  "anel-2-barras":{ouro:1},
+  "anel-3-barras":{ouro:1},
+  "colar-anjo":{prata:1,ouro:2},
+  bussola:{ouro:1,prata:3}, crucifixo:{ouro:3,prata:1}, cupido:{ouro:1,prata:2}, vault:{ouro:1,prata:2},
+  rosa:{ouro:2,prata:1}, northstar:{ouro:1,prata:2}, leao:{ouro:1,prata:2}, cristo:{ouro:2,prata:1},
+  "onyx-pedra":{ouro:2,prata:1}, jade:{ouro:1,prata:2}, monolith:{ouro:1,prata:2},
+  "fio-rope-3mm":{ouro:1,prata:2}, "cuban-8mm":{ouro:1,prata:3}, "figaro-5mm":{ouro:2,prata:1},
+  "snake-3mm":{ouro:2,prata:1}, "wire-1mm":{ouro:1,prata:2}, "box-1mm":{ouro:2,prata:1},
+  grego:{ouro:2,prata:1}, rope:{ouro:2,prata:1}, drill:{ouro:1,prata:2}, "anel-2mm":{ouro:2,prata:1},
+  brincos:{ouro:1,prata:2},
+  "colar-touch-of-god":{ouro:1,prata:2},
+  "anel-touch-of-god":{ouro:2,prata:1},
+  "colar-cruz":{ouro:1,prata:2},
+  "colar-asa":{ouro:1,prata:3},
+  "colar-medusa":{prata:1},
+  "colar-davinci":{ouro:1,prata:2},
+  "perola-crucifixo":{ouro:1},
+  "perola-bussola":{prata:1},
+  "mascote-perola-cuban":{ouro:1,prata:2},
+  "fio-clip":{ouro:1},
+  "sand-stone":{ouro:1,prata:2},
+  "mascote-2em1":{ouro:1,prata:2},
+};
+/* sizes */
+const BRACELET = ["19cm","21cm"], RING = ["6","7","8","9","10","11","12","13"];
+CATS.forEach(c=>c.groups.forEach(g=>g.items.forEach(p=>{
+  if(c.id==="mascotes"){ if(!p.sizes) p.sizes=BRACELET; p.sizeLabel="Tamanho do mascote"; }
+  if(c.id==="aneis"){ p.sizes=RING; p.sizeLabel="Tamanho do anel"; }
+})));
+["conj-cuban-8mm","conj-cuban-5mm","conj-cuban-3mm","conj-figaro-5mm","conj-colar-mascote"].forEach(id=>{ if(!ALL[id]) return; ALL[id].sizes=BRACELET; ALL[id].sizeLabel="Tamanho do mascote"; });
+if(ALL["conj-colar-anel"]){ ALL["conj-colar-anel"].sizes=RING; ALL["conj-colar-anel"].sizeLabel="Tamanho do anel"; }
+const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g,".") + " MT";
+const img = (p,i) => `img/${p.id}-${i}.jpg`;
+const esc = s => s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* tabs + sections */
+const tabs = document.getElementById("tabs"), main = document.getElementById("main");
+tabs.innerHTML = CATS.map(c=>`<button class="tab" data-c="${c.id}" aria-pressed="false">${c.name}</button>`).join("");
+var noimg=`<div class="noimg"><img src="img/logo.png" alt=""><span>Foto em breve</span></div>`;
+// Mini banners das categorias (foto lifestyle). img = telemóvel (1500x600), imgD = computador (2400x600, opcional). pos = posição horizontal/vertical.
+const BANNER_FOTOS=false; // false = banners lisos em preto; true = mostrar as fotos abaixo
+const CAT_BANNER={
+  "pingentes":{img:"colar-anjo-3",pos:"50% 80%"},
+  "colares":{img:"fio-rope-3mm-3",pos:"50% 45%"},
+  "mascotes":{img:"mascote-2em1-4",pos:"50% 52%"},
+  "aneis":{img:"anel-quadri-3",pos:"50% 42%"},
+  "perolas":{img:"mascote-perola-3mm-2",pos:"50% 55%"},
+  "brincos":{img:"brincos-2",pos:"50% 45%"},
+  "caixinha-mta":{img:"porta-joias-1",pos:"50% 50%",title:"Caixinha<br>MTA"},
+};
+main.innerHTML = CATS.map(c=>{
+  const n = c.groups.reduce((a,g)=>a+g.items.length,0);
+  const bn=CAT_BANNER[c.id];
+  return `<section class="cat" id="cat-${c.id}">
+    ${bn?`<div class="cbn${BANNER_FOTOS?"":" plain"}">${BANNER_FOTOS?`<picture>${bn.imgD?`<source media="(min-width:760px)" srcset="img/${bn.imgD}.jpg">`:""}<img src="img/${bn.img}.jpg" alt="" loading="lazy" decoding="async" style="object-position:${bn.pos}"></picture>`:""}<div class="bt"><h2>${bn.title||c.name}</h2></div></div>`
+        :`<div class="cat-h"><h2>${c.name}</h2></div>`}
+    ${c.intro?`<p class="intro">${esc(c.intro)}</p>`:""}
+    ${c.groups.map(g=>`${g.title?`<div class="sub">${g.title}</div>`:""}
+      <div class="grid">${g.items.map(p=>`
+        <button class="card" data-p="${p.id}">
+          <div class="ph">${p.imgs?`<img src="img/t/${p.id}.jpg" alt="${esc(p.name)}" loading="lazy" decoding="async" width="480" height="480">`:noimg}${badge(p)}</div>
+          <div class="tx">
+            <span class="nm">${esc(p.name)}</span>
+            <span class="tg">${esc(p.tag||"")}</span>
+            <div class="row"><span class="pr">${p.price==null?`<span class="soon">Sob consulta</span>`:`${p.opts?"desde ":""}${fmt(p.price)}${p.was?`<s>${fmt(p.was)}</s>`:""}`}</span><span class="go">QUERO</span></div>
+          </div>
+        </button>`).join("")}</div>`).join("")}
+  </section>`;
+}).join("");
+
+// Barra de categorias: separador ativo vai para o centro + esbatimento/seta quando há mais
+const tfl=document.getElementById("tfl"), tfr=document.getElementById("tfr");
+function edges(){ const max=tabs.scrollWidth-tabs.clientWidth;
+  tfl.classList.toggle("on",tabs.scrollLeft>6); tfr.classList.toggle("on",tabs.scrollLeft<max-6); }
+tabs.addEventListener("scroll",edges,{passive:true}); addEventListener("resize",edges);
+tfr.querySelector("button").addEventListener("click",()=>tabs.scrollBy({left:tabs.clientWidth*.6,behavior:"smooth"}));
+let activeCat=null;
+function setActive(id){ if(id===activeCat) return; activeCat=id;
+  let t=null; tabs.querySelectorAll(".tab").forEach(x=>{const on=x.dataset.c===id; x.setAttribute("aria-pressed",on); if(on) t=x;});
+  if(t) tabs.scrollTo({left:t.offsetLeft-(tabs.clientWidth-t.offsetWidth)/2,behavior:"smooth"}); }
+tabs.addEventListener("click",e=>{
+  const b=e.target.closest(".tab"); if(!b) return;
+  setActive(b.dataset.c);
+  document.getElementById("cat-"+b.dataset.c).scrollIntoView({behavior:"smooth"});
+});
+// categoria ativa = a última secção cujo topo já passou a linha por baixo da barra
+const secs=[...document.querySelectorAll("section.cat")];
+let spyT=0;
+function spy(){ const line=document.querySelector(".tabs").getBoundingClientRect().bottom+innerHeight*.25;
+  let cur=secs[0]; for(const x of secs){ if(x.getBoundingClientRect().top<=line) cur=x; } setActive(cur.id.slice(4)); }
+addEventListener("scroll",()=>{ if(!spyT) spyT=requestAnimationFrame(()=>{spyT=0;spy()}); },{passive:true});
+const io={observe(){}};
+requestAnimationFrame(edges);
+document.querySelectorAll("section.cat").forEach(s=>io.observe(s));
+setActive(CATS[0].id);
+
+document.getElementById("fab").href = waLink("Olá MTA Nation! Vi o vosso catálogo e gostaria de mais informações.");
+
+/* product sheet */
+const sheet=document.getElementById("sheet"), scrim=document.getElementById("scrim");
+let cur=null, mat="prata", opt=0, size=0;
+function badge(p){
+  if(SALE.on && p.was) return `<span class="badge">-${SALE.pct}%</span>`;
+  if(p.save) return `<span class="badge">Poupa ${fmt(p.save)}</span>`;
+  if(p.was) return `<span class="badge">Poupa ${fmt(p.was-p.price)}</span>`;
+  if(p.isNew) return `<span class="badge new">Novo</span>`;
+  return "";
+}
+const price = () => cur.opts ? cur.opts[opt].price : cur.price;
+function chips(name, arr, sel){
+  return `<div class="mats">${arr.map((x,i)=>`<button class="mat" data-g="${name}" data-i="${i}" aria-pressed="${i===sel}">${x}</button>`).join("")}</div>`;
+}
+function open(id, push=true){
+  const p=ALL[id]; if(!p) return;
+  cur=p; mat=(FIN[id]&&FIN[id].ouro===1)?"ouro":"prata"; opt=0; size=-1;
+  const pics=[...Array(p.imgs)].map((_,i)=>i===0?`<img id="g1" src="img/t/${p.id}.jpg" alt="${esc(p.name)} foto 1">`:`<img src="${img(p,i+1)}" alt="${esc(p.name)} foto ${i+1}" decoding="async" loading="lazy">`).join("");
+  sheet.innerHTML=`
+    <button class="x" aria-label="Fechar" id="x">×</button>
+    <div class="gal" id="gal">${p.imgs?pics:`<div class="noimg big">${noimg}</div>`}</div>
+    ${p.imgs>1?`<div class="dots" id="dots">${[...Array(p.imgs)].map((_,i)=>`<i class="${i?"":"on"}"></i>`).join("")}</div>`:""}
+    <div class="sb">
+      <div class="tg">${esc(p.tag||p.cat)}</div>
+      <h2>${esc(p.name)}</h2>
+      <div class="pr"><span id="pr"></span> <s id="was"></s> <em id="poupa"></em></div>
+      ${p.desc?`<p class="ds">${esc(p.desc)}</p>`:""}
+      ${p.opts?`<div class="lbl">Quantidade</div>${chips("opt",p.opts.map(o=>`${o.label} · ${fmt(o.price)}`),opt)}`:""}
+      ${p.sizes?`<div class="lblrow"><div class="lbl" id="szl">${p.sizeLabel||"Tamanho"}</div><button class="guide-btn" id="gbtn" type="button">📏 Guia de tamanhos</button></div><div class="guide" id="guide" hidden>${guideHTML(p)}</div>${chips("size",[...p.sizes,"Não sei o meu tamanho"],size)}<p class="szhelp" id="szh" hidden>Sem problema! A nossa equipa ajuda-te a descobrir o teu tamanho pelo WhatsApp.</p>`:""}
+      ${p.mats===false?"":`<div class="lbl">Escolhe o acabamento</div>
+      <div class="mats">${MATS.map(m=>`<button class="mat" data-g="mat" data-m="${m.id}" aria-pressed="${m.id===mat}"><i style="background:${m.color}"></i>${m.label}</button>`).join("")}</div>`}
+      <a class="order" id="order" href="#"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm4.5 12.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.2s.9 2.5 1 2.7c.1.2 1.8 2.8 4.4 3.9 1.6.7 2.3.8 3.1.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z"/></svg>Encomendar pelo WhatsApp</a>
+      <p class="note">Pagamento na entrega em Maputo · Enviamos para todas as províncias</p>
+      ${p.mats===false?"":`<div class="perks2"><span>Resistente à água e suor</span><span>Anti-alérgico</span><span>Entrega imediata</span></div>`}
+    </div>`;
+  setOrder();
+  const g1=sheet.querySelector("#g1");
+  if(g1){ const full=new Image(); full.decoding="async"; full.onload=()=>{ if(cur===p) g1.src=full.src; }; full.src=img(p,1); }
+  sheet.querySelector("#x").onclick=()=>close();
+  sheet.querySelectorAll(".mat").forEach(b=>b.onclick=()=>{
+    const g=b.dataset.g;
+    if(g==="mat"){ mat=b.dataset.m; showFin(); }
+    else if(g==="opt") opt=+b.dataset.i;
+    else { size=+b.dataset.i; const l=sheet.querySelector("#szl"); if(l){ l.classList.remove("err"); l.textContent=cur.sizeLabel||"Tamanho"; } sheet.querySelector("#szh").hidden = size!==cur.sizes.length; }
+    sheet.querySelectorAll(`.mat[data-g="${g}"]`).forEach(x=>x.setAttribute("aria-pressed",x===b)); setOrder();
+  });
+  const gal=sheet.querySelector("#gal"), dots=sheet.querySelector("#dots");
+  if(dots) gal.addEventListener("scroll",()=>{
+    const i=Math.round(gal.scrollLeft/gal.clientWidth);
+    dots.querySelectorAll("i").forEach((d,k)=>d.className=k===i?"on":"");
+  },{passive:true});
+  const gb=sheet.querySelector("#gbtn");
+  if(gb){
+    gb.onclick=()=>{ const g=sheet.querySelector("#guide"); g.hidden=!g.hidden; gb.classList.toggle("on",!g.hidden); };
+    const inp=sheet.querySelector("#gmm"), out=sheet.querySelector("#gout");
+    const calc=()=>{
+      const v=parseFloat((inp.value||"").replace(",","."));
+      const mode=sheet.querySelector('input[name="gmode"]:checked');
+      if(!v){ out.innerHTML=""; return; }
+      const r=suggest(cur, v, mode?mode.value:"");
+      out.innerHTML=r?`O teu tamanho é <b>${r}</b> <button type="button" class="gpick">Escolher ${r}</button>`:`Fora da nossa tabela. Escolhe "Não sei o meu tamanho" e a nossa equipa ajuda-te.`;
+      const pk=out.querySelector(".gpick");
+      if(pk) pk.onclick=()=>{ const i=cur.sizes.indexOf(r); const btn=sheet.querySelector(`.mat[data-g="size"][data-i="${i}"]`); if(btn) btn.click(); sheet.querySelector("#guide").hidden=true; gb.classList.remove("on"); };
+    };
+    inp.addEventListener("input",calc);
+    sheet.querySelectorAll('input[name="gmode"]').forEach(x=>x.addEventListener("change",calc));
+  }
+  sheet.querySelector("#order").addEventListener("click",e=>{
+    if(cur.sizes && size<0){
+      e.preventDefault();
+      const l=sheet.querySelector("#szl"); l.classList.add("err"); l.textContent="Escolhe o tamanho primeiro";
+      l.scrollIntoView({behavior:"smooth",block:"center"});
+    }
+  });
+  sheet.scrollTop=0;
+  requestAnimationFrame(()=>showFin(true));
+  sheet.classList.add("on"); scrim.classList.add("on"); document.body.classList.add("lock");
+  if(push && location.hash!=="#"+id) location.hash=id;
+}
+
+const INK="#101820", ACC="#c9a24a";
+const LBL=(x,y,t)=>`<text x="${x}" y="${y}" text-anchor="middle" font-size="10" font-weight="600" letter-spacing="1.6" fill="${INK}">${t}</text>`;
+const TICKLINE=(x1,y,x2)=>`<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${ACC}" stroke-width="2"/><line x1="${x1}" y1="${y-6}" x2="${x1}" y2="${y+6}" stroke="${ACC}" stroke-width="2"/><line x1="${x2}" y1="${y-6}" x2="${x2}" y2="${y+6}" stroke="${ACC}" stroke-width="2"/>`;
+const SVG_RING_D=`<svg class="gsvg" viewBox="0 0 300 134" role="img" aria-label="Medir o diâmetro interior de um anel" fill="none" stroke-linecap="round">
+  <circle cx="150" cy="54" r="40" stroke="${INK}" stroke-width="1.5"/>
+  <circle cx="150" cy="54" r="32" stroke="${INK}" stroke-width="1.5"/>
+  ${TICKLINE(118,54,182)}
+  ${LBL(150,112,"DIÂMETRO INTERIOR")}
+  <text x="150" y="128" text-anchor="middle" font-size="10" fill="#6b6f6c">Mede por dentro, sem contar o metal</text></svg>`;
+const SVG_RING_C=`<img class="gsvg gimg" src="img/guia-dedo.png" alt="Enrola uma tira de papel à volta do dedo, marca com um lápis e mede">`;
+const SVG_WRIST=`<img class="gsvg gimg" src="img/guia-pulso.png" alt="Mede à volta do pulso, logo acima do osso">`;
+const RING_MM = {"6":[16.5,51.9],"7":[17.3,54.4],"8":[18.1,56.9],"9":[18.9,59.5],"10":[19.8,62.1],"11":[20.6,64.6],"12":[21.4,67.2],"13":[22.2,69.7]};
+function isRing(p){ return p.sizes===RING; }
+function guideHTML(p){
+  if(isRing(p)) return `
+    <p><b>Opção 1 — Com um anel que já tens:</b> mede, com uma régua, a distância de um lado ao outro <b>por dentro</b> do anel (diâmetro).</p>${SVG_RING_D}
+    <p><b>Opção 2 — Com um fio ou tira de papel:</b> dá uma volta ao dedo, na base, marca onde se cruza e mede o comprimento (circunferência).</p>${SVG_RING_C}
+    <table><tr><th>Tamanho</th><th>Diâmetro</th><th>Circunferência</th></tr>
+    ${Object.entries(RING_MM).map(([k,[d,c]])=>`<tr><td><b>${k}</b></td><td>${String(d).replace(".",",")} mm</td><td>${String(c).replace(".",",")} mm</td></tr>`).join("")}</table>
+    <div class="gcalc"><label><input type="radio" name="gmode" value="d" checked> Diâmetro</label><label><input type="radio" name="gmode" value="c"> Circunferência</label>
+    <input id="gmm" inputmode="decimal" placeholder="Medida em mm, ex: 18,5"></div>
+    <p class="gout" id="gout"></p>
+    <p class="gnote">Entre dois tamanhos? Escolhe o maior.</p>`;
+  return `
+    <p><b>Como medir:</b> dá uma volta ao pulso com uma fita métrica (ou um fio e depois mede-o com uma régua), logo acima do osso.</p>${SVG_WRIST}
+    <table><tr><th>O teu pulso</th><th>Tamanho</th></tr>
+    <tr><td>até 17 cm</td><td><b>19cm</b></td></tr><tr><td>17 a 19 cm</td><td><b>21cm</b></td></tr>${p.sizes.includes("23cm")?`<tr><td>19 a 21 cm</td><td><b>23cm</b></td></tr>`:""}</table>
+    <div class="gcalc"><input id="gmm" inputmode="decimal" placeholder="Medida do pulso em cm, ex: 16,5"></div>
+    <p class="gout" id="gout"></p>
+    <p class="gnote">O mascote fica cerca de 2 cm mais largo que o pulso, para ficar confortável.</p>`;
+}
+function suggest(p, v, mode){
+  if(isRing(p)){
+    const idx = mode==="c"?1:0;
+    for(const [k,arr] of Object.entries(RING_MM)) if(v <= arr[idx]+0.2) return v < Object.values(RING_MM)[0][idx]-1.5 ? null : k;
+    return null;
+  }
+  const opts=[["19cm",17],["21cm",19],["23cm",21]].filter(o=>p.sizes.includes(o[0]));
+  for(const [k,max] of opts) if(v<=max) return v<13?null:k;
+  return null;
+}
+function showFin(instant){
+  const f=FIN[cur.id], gal=sheet.querySelector("#gal");
+  if(!f||!gal||!f[mat]) return;
+  gal.scrollTo({left:(f[mat]-1)*gal.clientWidth, behavior:instant?"auto":"smooth"});
+}
+function setOrder(){
+  sheet.querySelector("#pr").textContent=price()==null?"Preço sob consulta":fmt(price());
+  { const w=cur.opts?cur.opts[opt].was:cur.was, sv=cur.save||(w?w-price():0);
+    const ws=sheet.querySelector("#was"), pe=sheet.querySelector("#poupa");
+    ws.textContent=w?fmt(w):""; ws.hidden=!w; pe.textContent=sv?`Poupa ${fmt(sv)}`:""; pe.hidden=!sv; }
+  const lines=[`• ${cur.name}${cur.opts?` (${cur.opts[opt].label})`:""}${price()==null?"":` — ${fmt(price())}${SALE.on&&(cur.opts?cur.opts[opt].was:cur.was)?` (${SALE.label} -${SALE.pct}%)`:""}`}`];
+  if(cur.sizes && size>=0) lines.push(`• ${cur.sizeLabel||"Tamanho"}: ${size===cur.sizes.length?"não sei, preciso de ajuda":cur.sizes[size]}`);
+  if(cur.mats!==false) lines.push(`• Acabamento: ${MATS.find(x=>x.id===mat).label}`);
+  sheet.querySelector("#order").href=waLink(`Olá MTA Nation! Quero encomendar:\n${lines.join("\n")}`);
+}
+function close(){
+  sheet.classList.remove("on"); scrim.classList.remove("on"); document.body.classList.remove("lock");
+  if(location.hash) history.replaceState(null,"",location.pathname+location.search);
+}
+scrim.onclick=close;
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") close(); });
+main.addEventListener("click",e=>{ const c=e.target.closest(".card"); if(c) open(c.dataset.p); });
+const _pf=new Set();
+function prefetch(e){ const c=e.target.closest&&e.target.closest(".card"); if(!c) return; const p=ALL[c.dataset.p]; if(!p||!p.imgs||_pf.has(p.id)) return; _pf.add(p.id); const i=new Image(); i.src=img(p,1); }
+main.addEventListener("pointerdown",prefetch,{passive:true});
+main.addEventListener("pointerover",prefetch,{passive:true});
+function fromHash(){ const h=location.hash.slice(1); if(ALL[h]) open(h,false); else if(sheet.classList.contains("on")) close(); }
+window.addEventListener("hashchange",fromHash); fromHash();
+
+// Banner: troca de fotos
+(function(){const im=[...document.querySelectorAll('#slides img')],d=[...document.querySelectorAll('#sdots i')];let k=0;
+if(im.length>1 && !matchMedia('(prefers-reduced-motion: reduce)').matches)
+setInterval(()=>{im[k].classList.remove('on');d[k]&&d[k].classList.remove('on');k=(k+1)%im.length;im[k].classList.add('on');d[k]&&d[k].classList.add('on')},5000);
+document.getElementById('cta').addEventListener('click',e=>{e.preventDefault();const off=document.querySelector('.top').offsetHeight+document.querySelector('.tabs').offsetHeight;window.scrollTo({top:document.getElementById('main').getBoundingClientRect().top+scrollY-off+4,behavior:'smooth'})});})();
+
+// ===== PROMOÇÃO (barra no topo) =====
+// Contagem de 24h igual para todos: termina sempre à meia-noite de Maputo e recomeça no dia seguinte.
+const PROMO={ on:true, text:"<b>Black Friday</b> · 50% desconto em tudo", button:"Ver promoção" };
+(function(){const bar=document.getElementById('ann'); if(!PROMO.on) return;
+document.getElementById('ann-t').innerHTML=PROMO.text; document.getElementById('ann-a').textContent=PROMO.button;
+const DAY=86400000, TZ=2*3600000; // Maputo = UTC+2
+const p=n=>String(n).padStart(2,'0'), el=id=>document.getElementById(id);
+function tick(){const now=Date.now(); const end=Math.floor((now+TZ)/DAY+1)*DAY-TZ; const t=Math.floor((end-now)/1000);
+ el('cd-d').textContent='00'; el('cd-h').textContent=p(Math.floor(t/3600)); el('cd-m').textContent=p(Math.floor(t%3600/60)); el('cd-s').textContent=p(t%60)}
+tick(); bar.classList.add('on'); setInterval(tick,1000);
+el('ann-a').addEventListener('click',e=>{e.preventDefault();document.getElementById('cta').click()});})();
+</script>
+</body>
+</html>

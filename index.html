@@ -81,6 +81,16 @@
     .hero.hero-img{background:#050505}
     .hero.hero-img .hfg{left:50%;right:auto;width:auto;max-width:none;transform:translateX(-50%);-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 14%,#000 86%,transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 14%,#000 86%,transparent 100%)}
   }
+  /* Garantias (estilo premium) */
+  .trust{max-width:1100px;margin:0 auto;padding:22px 14px 4px}
+  .trust-in{background:#fff;border-radius:16px;padding:8px 22px;display:grid;grid-template-columns:1fr}
+  .ti{display:flex;align-items:center;gap:18px;padding:16px 0}
+  .ti+.ti{border-top:1px solid #ececec}
+  .tic{flex:none;width:54px;height:54px;border-radius:50%;border:2px solid #101820;display:flex;align-items:center;justify-content:center}
+  .tic svg{width:34px;height:34px}
+  .ti b{display:block;font-family:Montserrat,Poppins,sans-serif;font-size:12.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#101820}
+  .ti p{margin-top:4px;font-size:14px;line-height:1.45;color:#3a3d40}
+  @media(min-width:900px){.trust-in{grid-template-columns:repeat(4,1fr);gap:0 26px;padding:10px 26px}.ti{flex-direction:column;align-items:flex-start;gap:12px;padding:20px 0}.ti+.ti{border-top:0}}
   .perkbar{background:var(--green);color:#fff}
   .perkbar .perks{max-width:1100px;margin:0 auto;padding:12px 18px;justify-content:center;margin-top:0}
   @media(min-width:760px){
@@ -175,7 +185,7 @@
   .order svg{width:22px;height:22px}
   .note{font-size:12px;color:var(--muted);text-align:center;margin-top:10px}
   .perks2{display:flex;justify-content:space-between;gap:6px;margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
-  .perks2 span{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#444;text-align:center;flex:1}
+  .perks2 span{font-size:9.5px;hyphens:none;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#444;text-align:center;flex:1}
   body.lock{overflow:hidden}
   .lbl.err{color:#c0392b}
   .badge.new{background:var(--gold);color:#111}
@@ -243,13 +253,14 @@
     <a class="cta vh" href="#main" id="cta">Ver coleção</a>
   </div>
 </div>
-<div class="perkbar">
-  <div class="perks">
-      <span class="perk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.7s6 6.6 6 11.3a6 6 0 0 1-12 0c0-4.7 6-11.3 6-11.3z"/></svg>Resistente à água e suor</span>
-      <span class="perk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/></svg>Anti-alérgico</span>
-      <span class="perk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg>Entrega imediata</span>
-    </div>
-</div>
+<section class="trust" aria-label="Porquê MTA Nation">
+  <div class="trust-in">
+    <div class="ti"><span class="tic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 2.5s6.2 6.7 6.2 11.5A6.2 6.2 0 0 1 4.8 14C4.8 9.2 11 2.5 11 2.5z" fill="#101820"/><circle cx="18.5" cy="18.5" r="5" fill="#101820" stroke="#fff" stroke-width="1.6"/><path d="M16.3 18.6l1.5 1.5 2.9-3" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><b>Resistente à água e suor</b><p>Ginásio, praia ou dia a dia: as tuas peças acompanham-te em tudo.</p></div></div>
+    <div class="ti"><span class="tic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 1.8l7.5 3.2v5.6c0 4.9-3.2 8.6-7.5 10-4.3-1.4-7.5-5.1-7.5-10V5z" fill="#101820"/><path d="M11 6.8c-1.9 2.1-1.9 4.9 0 7 1.9-2.1 1.9-4.9 0-7z" fill="#fff"/><circle cx="18.5" cy="18.5" r="5" fill="#101820" stroke="#fff" stroke-width="1.6"/><path d="M16.3 18.6l1.5 1.5 2.9-3" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><b>Anti-alérgico</b><p>Aço inoxidável 316L, seguro para peles sensíveis.</p></div></div>
+    <div class="ti"><span class="tic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.8 6.2h11.4v9.6H1.8z" fill="#101820"/><path d="M13.2 9h3.6l3 3.2v3.6h-6.6z" fill="#101820"/><circle cx="5.6" cy="17" r="2" fill="#101820" stroke="#fff" stroke-width="1.2"/><circle cx="16" cy="17" r="2" fill="#101820" stroke="#fff" stroke-width="1.2"/><circle cx="18.5" cy="18.5" r="5" fill="#101820" stroke="#fff" stroke-width="1.6"/><path d="M16.3 18.6l1.5 1.5 2.9-3" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><b>Entrega imediata</b><p>Recebe rapidamente em Maputo. Enviamos para todas as províncias.</p></div></div>
+    <div class="ti"><span class="tic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1.8" y="4.5" width="17.4" height="12" rx="2.2" fill="#101820"/><rect x="1.8" y="7.4" width="17.4" height="2.2" fill="#fff"/><rect x="4.2" y="12" width="6" height="1.6" rx=".8" fill="#fff"/><circle cx="18.5" cy="18.5" r="5" fill="#101820" stroke="#fff" stroke-width="1.6"/><path d="M16.3 18.6l1.5 1.5 2.9-3" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><b>Cartão de garantia</b><p>Incluído em todas as encomendas.</p></div></div>
+  </div>
+</section>
 
 <main id="main"></main>
 
@@ -580,7 +591,7 @@ function open(id, push=true){
       <div class="mats">${MATS.map(m=>`<button class="mat" data-g="mat" data-m="${m.id}" aria-pressed="${m.id===mat}"><i style="background:${m.color}"></i>${m.label}</button>`).join("")}</div>`}
       <a class="order" id="order" href="#"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm4.5 12.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.2s.9 2.5 1 2.7c.1.2 1.8 2.8 4.4 3.9 1.6.7 2.3.8 3.1.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z"/></svg>Encomendar pelo WhatsApp</a>
       <p class="note">Pagamento na entrega em Maputo · Enviamos para todas as províncias</p>
-      ${p.mats===false?"":`<div class="perks2"><span>Resistente à água e suor</span><span>Anti-alérgico</span><span>Entrega imediata</span></div>`}
+      ${p.mats===false?"":`<div class="perks2"><span>Resistente à água e suor</span><span>Anti-alérgico</span><span>Entrega imediata</span><span>Cartão de garantia</span></div>`}
     </div>`;
   setOrder();
   const g1=sheet.querySelector("#g1");

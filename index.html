@@ -613,14 +613,14 @@ function renderUpsell(){
       <img src="img/t/${p.id}.jpg" alt="" loading="lazy">
       <div class="ups-t"><em>${TIPO[p.catId]||""}</em><b>${esc(p.name)}</b><span>${fmt(p.price)}${p.was?` <s>${fmt(p.was)}</s>`:""}</span></div>
       <button class="ups-a" data-add="${p.id}" aria-pressed="${on}">${on?"✓ Adicionado":"+ Adicionar"}</button></div>`}).join("")}</div>
-    ${BAG.length?`<p class="ups-bag">+ ${BAG.length} ${BAG.length===1?"artigo":"artigos"} já no saco (${fmt(bagTotal(BAG))})</p>`:""}
+    ${BAG.length?`<p class="ups-bag">+ ${BAG.length} ${BAG.length===1?"artigo":"artigos"} já no carrinho (${fmt(bagTotal(BAG))})</p>`:""}
     <button class="ups-go" data-go>${(upSel.size||BAG.length)?`Encomendar pelo WhatsApp · ${fmt(total+bagTotal(BAG))}`:"Continuar para o WhatsApp"}</button>
-    <button class="ups-more" data-more><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>Adicionar ao saco e continuar a comprar</button>
-    <button class="ups-sk" data-skip>Não, obrigado${BAG.length?" — encomendar só o saco + esta peça":""}</button>
+    <button class="ups-more" data-more><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9.5" cy="19.5" r="1.4"/><circle cx="17.5" cy="19.5" r="1.4"/><path d="M2.5 3.5h2.6l2.3 11.2a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.1L20.8 8H6.1"/></svg>Adicionar ao carrinho e continuar a comprar</button>
+    <button class="ups-sk" data-skip>Não, obrigado${BAG.length?" — encomendar só o carrinho + esta peça":""}</button>
   </div>`;
 }
 function closeUpsell(){ const m=document.getElementById("ups"); if(m) m.classList.remove("on"); }
-// ===== Saco (vários artigos numa só encomenda) =====
+// ===== Carrinho (vários artigos numa só encomenda) =====
 let BAG=[]; try{ BAG=JSON.parse(localStorage.getItem("mtaBag")||"[]"); }catch(e){ BAG=[]; }
 function saveBag(){ try{ localStorage.setItem("mtaBag",JSON.stringify(BAG)); }catch(e){} renderBagBar(); }
 function addLine(p){ return `• ${p.name} — ${fmt(p.price)}${p.sizes?` (${p.sizeLabel||"tamanho"} a confirmar)`:""}${p.mats!==false?` · Cor: ${MATS.find(x=>x.id===mat).label}`:""}`; }
@@ -638,7 +638,7 @@ function sendOrder(items){
 function goWhats(withAdds){ sendOrder(BAG.concat(currentItems(withAdds))); }
 function keepShopping(){
   BAG=BAG.concat(currentItems(true)); saveBag(); closeUpsell(); close();
-  toast(`Adicionado ao saco · ${BAG.length} ${BAG.length===1?"artigo":"artigos"}`);
+  toast(`Adicionado ao carrinho · ${BAG.length} ${BAG.length===1?"artigo":"artigos"}`);
 }
 function toast(t){ let el=document.getElementById("toast"); if(!el){el=document.createElement("div");el.id="toast";el.className="toast";document.body.appendChild(el);}
   el.textContent=t; el.classList.add("on"); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove("on"),2200); }
@@ -646,7 +646,7 @@ function renderBagBar(){
   let bar=document.getElementById("bagbar");
   if(!bar){ bar=document.createElement("button"); bar.id="bagbar"; bar.className="bagbar"; bar.onclick=openBag; document.body.appendChild(bar); }
   const n=BAG.length; bar.classList.toggle("on",n>0); document.body.classList.toggle("hasbag",n>0);
-  bar.innerHTML=`<span class="bb-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg><b>${n}</b></span><span class="bb-t">${n} ${n===1?"artigo":"artigos"} · ${fmt(bagTotal(BAG))}</span><span class="bb-go">Ver saco →</span>`;
+  bar.innerHTML=`<span class="bb-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9.5" cy="19.5" r="1.4"/><circle cx="17.5" cy="19.5" r="1.4"/><path d="M2.5 3.5h2.6l2.3 11.2a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.1L20.8 8H6.1"/></svg><b>${n}</b></span><span class="bb-t">${n} ${n===1?"artigo":"artigos"} · ${fmt(bagTotal(BAG))}</span><span class="bb-go">Ver carrinho →</span>`;
 }
 function openBag(){
   let m=document.getElementById("ups");
@@ -655,13 +655,13 @@ function openBag(){
 }
 function renderBag(){
   const m=document.getElementById("ups");
-  m.innerHTML=`<div class="ups-in" role="dialog" aria-label="O teu saco">
+  m.innerHTML=`<div class="ups-in" role="dialog" aria-label="O teu carrinho">
     <button class="ups-x" data-x aria-label="Fechar">×</button>
-    <div class="ups-k">A tua encomenda</div><h3>O teu saco</h3>
+    <div class="ups-k">A tua encomenda</div><h3>O teu carrinho</h3>
     <div class="ups-l">${BAG.map((x,i)=>`<div class="ups-i">
       <img src="img/t/${x.id}.jpg" alt="" loading="lazy">
       <div class="ups-t"><b>${esc(x.name)}</b><span>${fmt(x.price)}</span><small>${esc(x.lines.slice(1).map(l=>l.replace(/^•\s*/,"")).join(" · "))}</small></div>
-      <button class="ups-rm" data-rm="${i}" aria-label="Remover">×</button></div>`).join("")||`<p class="ups-empty">O saco está vazio.</p>`}</div>
+      <button class="ups-rm" data-rm="${i}" aria-label="Remover">×</button></div>`).join("")||`<p class="ups-empty">O carrinho está vazio.</p>`}</div>
     ${BAG.length?`<button class="ups-go" data-bagsend>Encomendar pelo WhatsApp · ${fmt(bagTotal(BAG))}</button>`:""}
     <button class="ups-sk" data-x>Continuar a comprar</button>
   </div>`;

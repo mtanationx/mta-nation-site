@@ -71,6 +71,16 @@
   .hero .sdots{display:flex;gap:6px;margin-top:18px}
   .hero .sdots i{width:18px;height:2px;background:rgba(255,255,255,.35);border-radius:2px;transition:background .3s}
   .hero .sdots i.on{background:#fff}
+  /* Banner principal com imagem (texto já vem na foto) */
+  .hero.hero-img{height:auto;min-height:0;aspect-ratio:1036/1518;cursor:pointer;background:#080808}
+  .hero.hero-img:after{display:none}
+  .hero.hero-img .hbg{display:none}
+  .hero.hero-img .hfg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  @media(min-width:760px){
+    .hero.hero-img{aspect-ratio:auto;height:min(78vh,720px)}
+    .hero.hero-img{background:#050505}
+    .hero.hero-img .hfg{left:50%;right:auto;width:auto;max-width:none;transform:translateX(-50%);-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 14%,#000 86%,transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 14%,#000 86%,transparent 100%)}
+  }
   .perkbar{background:var(--green);color:#fff}
   .perkbar .perks{max-width:1100px;margin:0 auto;padding:12px 18px;justify-content:center;margin-top:0}
   @media(min-width:760px){
@@ -225,13 +235,12 @@
   <span class="tfade r" id="tfr"><button type="button" aria-label="Mais categorias"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button></span>
 </nav>
 
-<div class="hero">
-  <div class="slides" id="slides">
-    <picture><!-- computador: --><source media="(min-width:760px)" srcset="img/perola-3mm-2.jpg"><img class="on" src="img/perola-3mm-2.jpg" alt="" style="object-position:50% 20%"></picture>
-  </div>
+<div class="hero hero-img" id="heroLink" role="link" tabindex="0" aria-label="Black Friday — 50% desconto. Ver coleção">
+  <img class="hbg" src="img/banner-bf.jpg" alt="" aria-hidden="true">
+  <img class="hfg" src="img/banner-bf.jpg" alt="Black Friday — 50% de desconto em tudo" fetchpriority="high">
   <div class="hero-in">
     <h1 class="vh">MTA Nation · Catálogo 2026</h1>
-    <a class="cta" href="#main" id="cta">Ver coleção <span aria-hidden="true">→</span></a>
+    <a class="cta vh" href="#main" id="cta">Ver coleção</a>
   </div>
 </div>
 <div class="perkbar">
@@ -692,6 +701,7 @@ window.addEventListener("hashchange",fromHash); fromHash();
 (function(){const im=[...document.querySelectorAll('#slides img')],d=[...document.querySelectorAll('#sdots i')];let k=0;
 if(im.length>1 && !matchMedia('(prefers-reduced-motion: reduce)').matches)
 setInterval(()=>{im[k].classList.remove('on');d[k]&&d[k].classList.remove('on');k=(k+1)%im.length;im[k].classList.add('on');d[k]&&d[k].classList.add('on')},5000);
+(()=>{const h=document.getElementById('heroLink'); if(h){h.addEventListener('click',()=>document.getElementById('cta').click()); h.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('cta').click()});}})();
 document.getElementById('cta').addEventListener('click',e=>{e.preventDefault();const off=document.querySelector('.top').offsetHeight+document.querySelector('.tabs').offsetHeight;window.scrollTo({top:document.getElementById('main').getBoundingClientRect().top+scrollY-off+4,behavior:'smooth'})});})();
 
 // ===== PROMOÇÃO (barra no topo) =====

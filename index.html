@@ -81,16 +81,16 @@
     .hero.hero-img{background:#050505}
     .hero.hero-img .hfg{left:50%;right:auto;width:auto;max-width:none;transform:translateX(-50%);-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 14%,#000 86%,transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 14%,#000 86%,transparent 100%)}
   }
-  /* Garantias (estilo premium) */
-  .trust{max-width:1100px;margin:0 auto;padding:22px 14px 4px}
-  .trust-in{background:#fff;border-radius:16px;padding:8px 22px;display:grid;grid-template-columns:1fr}
-  .ti{display:flex;align-items:center;gap:18px;padding:16px 0}
-  .ti+.ti{border-top:1px solid #ececec}
-  .tic{flex:none;width:54px;height:54px;border-radius:50%;border:2px solid #101820;display:flex;align-items:center;justify-content:center}
-  .tic svg{width:34px;height:34px}
-  .ti b{display:block;font-family:Montserrat,Poppins,sans-serif;font-size:12.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#101820}
-  .ti p{margin-top:4px;font-size:14px;line-height:1.45;color:#3a3d40}
-  @media(min-width:900px){.trust-in{grid-template-columns:repeat(4,1fr);gap:0 26px;padding:10px 26px}.ti{flex-direction:column;align-items:flex-start;gap:12px;padding:20px 0}.ti+.ti{border-top:0}}
+  /* Garantias (estilo premium, compacto) */
+  .trust{max-width:1100px;margin:0 auto;padding:14px 14px 0}
+  .trust-in{background:#fff;border-radius:14px;padding:12px 6px;display:grid;grid-template-columns:repeat(4,1fr)}
+  .ti{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;padding:2px 4px}
+  .ti+.ti{border-left:1px solid #efefef}
+  .tic{flex:none;width:34px;height:34px;border-radius:50%;border:1.5px solid #101820;display:flex;align-items:center;justify-content:center}
+  .tic svg{width:20px;height:20px}
+  .ti b{display:block;font-family:Montserrat,Poppins,sans-serif;font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#101820;line-height:1.35}
+  .ti p{display:none}
+  @media(min-width:900px){.trust-in{padding:6px 18px}.ti{flex-direction:row;align-items:flex-start;text-align:left;gap:12px;padding:14px 10px 14px 16px}.ti b{font-size:10.5px;letter-spacing:.12em}.ti p{display:block;margin-top:3px;font-size:12.5px;line-height:1.4;color:#5a5e62}}
   .perkbar{background:var(--green);color:#fff}
   .perkbar .perks{max-width:1100px;margin:0 auto;padding:12px 18px;justify-content:center;margin-top:0}
   @media(min-width:760px){
@@ -256,8 +256,8 @@
 <section class="trust" aria-label="Porquê MTA Nation">
   <div class="trust-in">
     <div class="ti"><span class="tic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 2.5s6.2 6.7 6.2 11.5A6.2 6.2 0 0 1 4.8 14C4.8 9.2 11 2.5 11 2.5z" fill="#101820"/><circle cx="18.5" cy="18.5" r="5" fill="#101820" stroke="#fff" stroke-width="1.6"/><path d="M16.3 18.6l1.5 1.5 2.9-3" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><b>Resistente à água e suor</b><p>Ginásio, praia ou dia a dia: as tuas peças acompanham-te em tudo.</p></div></div>
-    <div class="ti"><span class="tic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 1.8l7.5 3.2v5.6c0 4.9-3.2 8.6-7.5 10-4.3-1.4-7.5-5.1-7.5-10V5z" fill="#101820"/><path d="M11 6.8c-1.9 2.1-1.9 4.9 0 7 1.9-2.1 1.9-4.9 0-7z" fill="#fff"/><circle cx="18.5" cy="18.5" r="5" fill="#101820" stroke="#fff" stroke-width="1.6"/><path d="M16.3 18.6l1.5 1.5 2.9-3" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><b>Anti-alérgico</b><p>Aço inoxidável 316L, seguro para peles sensíveis.</p></div></div>
-    <div class="ti"><span class="tic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.8 6.2h11.4v9.6H1.8z" fill="#101820"/><path d="M13.2 9h3.6l3 3.2v3.6h-6.6z" fill="#101820"/><circle cx="5.6" cy="17" r="2" fill="#101820" stroke="#fff" stroke-width="1.2"/><circle cx="16" cy="17" r="2" fill="#101820" stroke="#fff" stroke-width="1.2"/><circle cx="18.5" cy="18.5" r="5" fill="#101820" stroke="#fff" stroke-width="1.6"/><path d="M16.3 18.6l1.5 1.5 2.9-3" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><b>Entrega imediata</b><p>Recebe rapidamente em Maputo. Enviamos para todas as províncias.</p></div></div>
+    <div class="ti"><span class="tic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 1.8l7.5 3.2v5.6c0 4.9-3.2 8.6-7.5 10-4.3-1.4-7.5-5.1-7.5-10V5z" fill="#101820"/><path d="M11 6.8c-1.9 2.1-1.9 4.9 0 7 1.9-2.1 1.9-4.9 0-7z" fill="#fff"/><circle cx="18.5" cy="18.5" r="5" fill="#101820" stroke="#fff" stroke-width="1.6"/><path d="M16.3 18.6l1.5 1.5 2.9-3" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><b>Anti-alérgico</b><p>Aço inoxidável 316L.</p></div></div>
+    <div class="ti"><span class="tic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.8 6.2h11.4v9.6H1.8z" fill="#101820"/><path d="M13.2 9h3.6l3 3.2v3.6h-6.6z" fill="#101820"/><circle cx="5.6" cy="17" r="2" fill="#101820" stroke="#fff" stroke-width="1.2"/><circle cx="16" cy="17" r="2" fill="#101820" stroke="#fff" stroke-width="1.2"/><circle cx="18.5" cy="18.5" r="5" fill="#101820" stroke="#fff" stroke-width="1.6"/><path d="M16.3 18.6l1.5 1.5 2.9-3" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><b>Entrega imediata</b><p>Recebe de imediato em Maputo. Enviamos também para todas as províncias.</p></div></div>
     <div class="ti"><span class="tic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1.8" y="4.5" width="17.4" height="12" rx="2.2" fill="#101820"/><rect x="1.8" y="7.4" width="17.4" height="2.2" fill="#fff"/><rect x="4.2" y="12" width="6" height="1.6" rx=".8" fill="#fff"/><circle cx="18.5" cy="18.5" r="5" fill="#101820" stroke="#fff" stroke-width="1.6"/><path d="M16.3 18.6l1.5 1.5 2.9-3" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><b>Cartão de garantia</b><p>Incluído em todas as encomendas.</p></div></div>
   </div>
 </section>

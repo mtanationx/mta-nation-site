@@ -372,7 +372,7 @@ const CATS = [
     { title:null, items:[
       { id:"davinci", name:"Anel DaVinci", tag:"Perfeição", price:2000, imgs:2,
         desc:"A famosa obra de arte de Leonardo da Vinci agora nos teus dedos.\nIdeal para quem prioriza a PERFEIÇÃO!" },
-      { id:"grego", name:"Anel Grego", tag:"Autoridade", price:2000, imgs:2,
+      { id:"grego", name:"Anel Grego", tag:"Autoridade", price:2000, imgs:5,
         desc:"Um anel que fala por ti antes mesmo de dizeres uma palavra.\nIdeal para quem prioriza a AUTORIDADE!" },
       { id:"anel-onyx", name:"Anel Onyx", tag:"Classe", price:1500, imgs:1,
         desc:"Se queres algo mais discreto, mas impossível de ignorar.\nIdeal para quem prioriza a CLASSE e SOFISTICAÇÃO!" },
@@ -465,6 +465,7 @@ if(SALE.on) CATS.forEach(c=>c.groups.forEach(g=>g.items.forEach(p=>{
 const ALL = {}; CATS.forEach(c=>c.groups.forEach(g=>g.items.forEach(p=>{p.cat=c.name;ALL[p.id]=p})));
 /* which photo shows each finish (photo number) */
 const FIN = {
+  "grego":{ouro:3,prata:2},
   "brincos":{ouro:1,prata:2},
   "anel-quadri":{ouro:1,prata:2},
   "anel-2-barras":{ouro:1},

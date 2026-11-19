@@ -150,6 +150,7 @@
   .ups-i img{width:62px;height:62px;border-radius:10px;object-fit:cover;background:#f3f3f3;flex:none}
   .ups-t{flex:1;min-width:0}
   .ups-t b{display:block;font-family:Montserrat,Poppins,sans-serif;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#101820}
+  .ups-t em{display:block;font-style:normal;font-size:9.5px;font-weight:400;letter-spacing:.2em;text-transform:uppercase;color:#9a9da0;margin-bottom:2px}
   .ups-t span{font-size:13px;color:#101820}
   .ups-t s{color:#9a9da0;font-size:11px;margin-left:4px}
   .ups-a{flex:none;font-size:11px;font-weight:700;letter-spacing:.04em;padding:9px 12px;border-radius:999px;border:1.5px solid #101820;color:#101820;background:#fff}
@@ -550,6 +551,7 @@ const MAIS_VENDIDOS=["cuban-5mm","bussola","anel-onyx-a01","fio-cuban-3mm"];
 const CAIXINHA_ID="caixinha";
 const COMBINA={ pingentes:["mascotes"], colares:["mascotes"], mascotes:["colares","pingentes"], aneis:["aneis"], perolas:["perolas","mascotes"], brincos:["pingentes"], "caixinha-mta":["pingentes"] };
 let ORDER_LINES=[];
+const TIPO={pingentes:"Pingente",colares:"Colar",mascotes:"Mascote",aneis:"Anel",perolas:"Pérolas",brincos:"Brincos","caixinha-mta":"Embalagem"};
 function upOK(p){ return p && p.price!=null && !p.soldOut && p.id!==cur.id && p.imgs; }
 function pickUpsell(){
   const out=[], has=id=>out.some(x=>x.id===id);
@@ -585,7 +587,7 @@ function renderUpsell(){
     <h3>Completa o teu look</h3>
     <div class="ups-l">${upList.map(p=>{const on=upSel.has(p.id);return `<div class="ups-i${on?" on":""}">
       <img src="img/t/${p.id}.jpg" alt="" loading="lazy">
-      <div class="ups-t"><b>${esc(p.name)}</b><span>${fmt(p.price)}${p.was?` <s>${fmt(p.was)}</s>`:""}</span></div>
+      <div class="ups-t"><em>${TIPO[p.catId]||""}</em><b>${esc(p.name)}</b><span>${fmt(p.price)}${p.was?` <s>${fmt(p.was)}</s>`:""}</span></div>
       <button class="ups-a" data-add="${p.id}" aria-pressed="${on}">${on?"✓ Adicionado":"+ Adicionar"}</button></div>`}).join("")}</div>
     <button class="ups-go" data-go>${upSel.size?`Continuar · ${fmt(total)}`:"Continuar para o WhatsApp"}</button>
     <button class="ups-sk" data-skip>Não, obrigado</button>

@@ -159,6 +159,22 @@
   .ups-a[aria-pressed="true"]{background:#101820;color:#fff}
   .ups-go{display:block;width:100%;margin-top:16px;background:#25a24a;color:#fff;font-weight:700;font-size:15px;padding:15px;border-radius:14px}
   .ups-sk{display:block;width:100%;margin-top:6px;padding:10px;font-size:13px;color:#6b6f6c;text-decoration:underline}
+  .ups-more{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:8px;padding:13px;border:1.5px solid #101820;border-radius:14px;font-weight:700;font-size:13px;color:#101820;background:#fff}
+  .ups-more svg,.bb-i svg{width:18px;height:18px}
+  .ups-bag{margin-top:12px;font-size:12px;color:#5a5e62;text-align:center}
+  .ups-empty{font-size:13px;color:#8a8d90;padding:6px 2px}
+  .ups-t small{display:block;font-size:11px;color:#8a8d90;margin-top:2px;line-height:1.35}
+  .ups-rm{flex:none;width:32px;height:32px;border-radius:50%;background:#f2f2f2;font-size:18px;line-height:1;color:#101820}
+  .ups-in{max-height:88vh;overflow-y:auto}
+  .bagbar{position:fixed;left:12px;right:12px;bottom:12px;z-index:31;display:none;align-items:center;gap:10px;background:#101820;color:#fff;border-radius:16px;padding:12px 16px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:520px;margin:0 auto}
+  .bagbar.on{display:flex}
+  .bb-i{position:relative;display:flex}
+  .bb-i b{position:absolute;top:-6px;right:-8px;background:#d6302a;font-size:10px;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 4px}
+  .bb-t{flex:1;text-align:left;font-size:13px;font-weight:600}
+  .bb-go{font-size:12px;font-weight:700;letter-spacing:.04em}
+  body.hasbag .fab{display:none}
+  .toast{white-space:nowrap;position:fixed;left:50%;bottom:84px;transform:translate(-50%,20px);z-index:70;background:#101820;color:#fff;font-size:13px;font-weight:600;padding:10px 16px;border-radius:999px;opacity:0;pointer-events:none;transition:all .25s}
+  .toast.on{opacity:1;transform:translate(-50%,0)}
   .badge.so{background:#101820}
   .card.sold .ph img{opacity:.5;filter:grayscale(.6)}
   .card.sold .go{background:#c9cbcd;color:#fff}
@@ -521,7 +537,7 @@ const FIN = {
   "onyx-pedra":{ouro:2,prata:1}, jade:{ouro:1,prata:2}, monolith:{ouro:1,prata:2},
   "fio-rope-3mm":{ouro:1,prata:2}, "cuban-8mm":{ouro:1,prata:3}, "figaro-5mm":{ouro:2,prata:1},
   "snake-3mm":{ouro:2,prata:1}, "wire-1mm":{ouro:1,prata:2}, "box-1mm":{ouro:2,prata:1},
-  grego:{ouro:2,prata:1}, rope:{ouro:2,prata:1}, drill:{ouro:1,prata:2}, "anel-2mm":{ouro:2,prata:1},
+  rope:{ouro:2,prata:1}, drill:{ouro:1,prata:2}, "anel-2mm":{ouro:2,prata:1},
   brincos:{ouro:1,prata:2},
   "colar-touch-of-god":{ouro:1,prata:2},
   "anel-touch-of-god":{ouro:2,prata:1},
@@ -566,17 +582,24 @@ function pickUpsell(){
   return out.slice(0,3);
 }
 let upSel=new Set(), upList=[];
-function openUpsell(){
-  upList=pickUpsell(); if(!upList.length) return false;
-  upSel=new Set();
+function openUpsellShell(){
   let m=document.getElementById("ups");
   if(!m){ m=document.createElement("div"); m.id="ups"; m.className="ups"; document.body.appendChild(m);
     m.addEventListener("click",e=>{
       if(e.target===m||e.target.closest("[data-x]")) return closeUpsell();
       const b=e.target.closest("[data-add]"); if(b){ const id=b.dataset.add; upSel.has(id)?upSel.delete(id):upSel.add(id); renderUpsell(); return; }
+      const r=e.target.closest("[data-rm]"); if(r){ BAG.splice(+r.dataset.rm,1); saveBag(); renderBag(); return; }
       if(e.target.closest("[data-go]")) return goWhats(true);
       if(e.target.closest("[data-skip]")) return goWhats(false);
+      if(e.target.closest("[data-more]")) return keepShopping();
+      if(e.target.closest("[data-bagsend]")) return sendOrder(BAG.slice());
     }); }
+  return m;
+}
+function openUpsell(){
+  upList=pickUpsell().filter(p=>!BAG.some(x=>x.id===p.id));
+  upSel=new Set();
+  const m=openUpsellShell(); m.dataset.mode="up";
   renderUpsell(); requestAnimationFrame(()=>m.classList.add("on"));
   return true;
 }
@@ -586,24 +609,62 @@ function renderUpsell(){
     <button class="ups-x" data-x aria-label="Fechar">×</button>
     <div class="ups-k">Antes de encomendar</div>
     <h3>Completa o teu look</h3>
-    <div class="ups-l">${upList.map(p=>{const on=upSel.has(p.id);return `<div class="ups-i${on?" on":""}">
+    <div class="ups-l">${upList.length?"":`<p class="ups-empty">Sem sugestões para esta peça.</p>`}${upList.map(p=>{const on=upSel.has(p.id);return `<div class="ups-i${on?" on":""}">
       <img src="img/t/${p.id}.jpg" alt="" loading="lazy">
       <div class="ups-t"><em>${TIPO[p.catId]||""}</em><b>${esc(p.name)}</b><span>${fmt(p.price)}${p.was?` <s>${fmt(p.was)}</s>`:""}</span></div>
       <button class="ups-a" data-add="${p.id}" aria-pressed="${on}">${on?"✓ Adicionado":"+ Adicionar"}</button></div>`}).join("")}</div>
-    <button class="ups-go" data-go>${upSel.size?`Continuar · ${fmt(total)}`:"Continuar para o WhatsApp"}</button>
-    <button class="ups-sk" data-skip>Não, obrigado</button>
+    ${BAG.length?`<p class="ups-bag">+ ${BAG.length} ${BAG.length===1?"artigo":"artigos"} já no saco (${fmt(bagTotal(BAG))})</p>`:""}
+    <button class="ups-go" data-go>${(upSel.size||BAG.length)?`Encomendar pelo WhatsApp · ${fmt(total+bagTotal(BAG))}`:"Continuar para o WhatsApp"}</button>
+    <button class="ups-more" data-more><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>Adicionar ao saco e continuar a comprar</button>
+    <button class="ups-sk" data-skip>Não, obrigado${BAG.length?" — encomendar só o saco + esta peça":""}</button>
   </div>`;
 }
 function closeUpsell(){ const m=document.getElementById("ups"); if(m) m.classList.remove("on"); }
-function goWhats(withAdds){
+// ===== Saco (vários artigos numa só encomenda) =====
+let BAG=[]; try{ BAG=JSON.parse(localStorage.getItem("mtaBag")||"[]"); }catch(e){ BAG=[]; }
+function saveBag(){ try{ localStorage.setItem("mtaBag",JSON.stringify(BAG)); }catch(e){} renderBagBar(); }
+function addLine(p){ return `• ${p.name} — ${fmt(p.price)}${p.sizes?` (${p.sizeLabel||"tamanho"} a confirmar)`:""}${p.mats!==false?` · Cor: ${MATS.find(x=>x.id===mat).label}`:""}`; }
+function currentItems(withAdds){
   const adds=withAdds?upList.filter(p=>upSel.has(p.id)):[];
-  let msg=`Olá MTA Nation! Quero encomendar:\n${ORDER_LINES.join("\n")}`;
-  if(adds.length){
-    msg+=`\n\nAdicionar também:\n`+adds.map(p=>`• ${p.name} — ${fmt(p.price)}${p.sizes?` (${p.sizeLabel||"tamanho"} a confirmar)`:""}${p.mats!==false?` · ${MATS.find(x=>x.id===mat).label}`:""}`).join("\n");
-    const tot=(price()||0)+adds.reduce((a,p)=>a+p.price,0);
-    msg+=`\n\nTotal: ${fmt(tot)}`;
-  }
-  closeUpsell(); location.href=waLink(msg);
+  return [{id:cur.id,name:cur.name,price:price()||0,lines:ORDER_LINES.slice()}]
+    .concat(adds.map(p=>({id:p.id,name:p.name,price:p.price,lines:[addLine(p)]})));
+}
+function bagTotal(items){ return items.reduce((a,x)=>a+(x.price||0),0); }
+function sendOrder(items){
+  let msg=`Olá MTA Nation! Quero encomendar:\n\n`+items.map(x=>x.lines.join("\n")).join("\n\n");
+  if(items.length>1) msg+=`\n\nTotal: ${fmt(bagTotal(items))}`;
+  BAG=[]; saveBag(); closeUpsell(); location.href=waLink(msg);
+}
+function goWhats(withAdds){ sendOrder(BAG.concat(currentItems(withAdds))); }
+function keepShopping(){
+  BAG=BAG.concat(currentItems(true)); saveBag(); closeUpsell(); close();
+  toast(`Adicionado ao saco · ${BAG.length} ${BAG.length===1?"artigo":"artigos"}`);
+}
+function toast(t){ let el=document.getElementById("toast"); if(!el){el=document.createElement("div");el.id="toast";el.className="toast";document.body.appendChild(el);}
+  el.textContent=t; el.classList.add("on"); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove("on"),2200); }
+function renderBagBar(){
+  let bar=document.getElementById("bagbar");
+  if(!bar){ bar=document.createElement("button"); bar.id="bagbar"; bar.className="bagbar"; bar.onclick=openBag; document.body.appendChild(bar); }
+  const n=BAG.length; bar.classList.toggle("on",n>0); document.body.classList.toggle("hasbag",n>0);
+  bar.innerHTML=`<span class="bb-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg><b>${n}</b></span><span class="bb-t">${n} ${n===1?"artigo":"artigos"} · ${fmt(bagTotal(BAG))}</span><span class="bb-go">Ver saco →</span>`;
+}
+function openBag(){
+  let m=document.getElementById("ups");
+  if(!m){ openUpsellShell(); m=document.getElementById("ups"); }
+  m.dataset.mode="bag"; renderBag(); requestAnimationFrame(()=>m.classList.add("on"));
+}
+function renderBag(){
+  const m=document.getElementById("ups");
+  m.innerHTML=`<div class="ups-in" role="dialog" aria-label="O teu saco">
+    <button class="ups-x" data-x aria-label="Fechar">×</button>
+    <div class="ups-k">A tua encomenda</div><h3>O teu saco</h3>
+    <div class="ups-l">${BAG.map((x,i)=>`<div class="ups-i">
+      <img src="img/t/${x.id}.jpg" alt="" loading="lazy">
+      <div class="ups-t"><b>${esc(x.name)}</b><span>${fmt(x.price)}</span><small>${esc(x.lines.slice(1).map(l=>l.replace(/^•\s*/,"")).join(" · "))}</small></div>
+      <button class="ups-rm" data-rm="${i}" aria-label="Remover">×</button></div>`).join("")||`<p class="ups-empty">O saco está vazio.</p>`}</div>
+    ${BAG.length?`<button class="ups-go" data-bagsend>Encomendar pelo WhatsApp · ${fmt(bagTotal(BAG))}</button>`:""}
+    <button class="ups-sk" data-x>Continuar a comprar</button>
+  </div>`;
 }
 
 const img = (p,i) => `img/${p.id}-${i}.jpg`;
@@ -850,6 +911,8 @@ function tick(){const now=Date.now(); const end=Math.floor((now+TZ)/DAY+1)*DAY-T
  el('cd-d').textContent='00'; el('cd-h').textContent=p(Math.floor(t/3600)); el('cd-m').textContent=p(Math.floor(t%3600/60)); el('cd-s').textContent=p(t%60)}
 tick(); bar.classList.add('on'); setInterval(tick,1000);
 el('ann-a').addEventListener('click',e=>{e.preventDefault();document.getElementById('cta').click()});})();
+
+renderBagBar();
 </script>
 </body>
 </html>

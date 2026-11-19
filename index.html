@@ -30,6 +30,7 @@ document.write('<link rel="preload" as="image" type="image/webp" imagesrcset="im
   /* Header */
   .top{background:#000;color:#fff;position:sticky;top:0;z-index:20}
   .top-in{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:center;padding:18px 18px;height:118px;box-sizing:border-box}
+  .top a#toTop{display:block;line-height:0;cursor:pointer}
   .top img{height:76px;width:auto}
   .top .ig{font-size:12px;font-weight:600;letter-spacing:.06em;text-decoration:none;border:1px solid rgba(255,255,255,.35);padding:7px 12px;border-radius:999px}
   .tabs{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:118px;z-index:19}
@@ -289,7 +290,7 @@ document.write('<link rel="preload" as="image" type="image/webp" imagesrcset="im
 
 <header class="top">
   <div class="top-in">
-    <img src="img/logo.png" alt="MTA Nation">
+    <a href="#" id="toTop" aria-label="Voltar ao início"><img src="img/logo.png" alt="MTA Nation"></a>
   </div>
 </header>
 
@@ -920,6 +921,8 @@ tick(); bar.classList.add('on'); setInterval(tick,1000);
 el('ann-a').addEventListener('click',e=>{e.preventDefault();document.getElementById('cta').click()});})();
 
 renderBagBar();
+
+document.getElementById("toTop").addEventListener("click",e=>{e.preventDefault(); if(document.getElementById("sheet").classList.contains("on")) close(); window.scrollTo({top:0,behavior:"smooth"});});
 </script>
 </body>
 </html>

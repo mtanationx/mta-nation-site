@@ -7,6 +7,8 @@
 <script>
 /* VIP: o link com ?vip dá 50%; o link normal dá 30%. Fica guardado no telemóvel. */
 (function(){var v=false;try{if(/[?&]vip\b/i.test(location.search)){localStorage.setItem("mtaVip","1");}v=localStorage.getItem("mtaVip")==="1";}catch(e){v=/[?&]vip\b/i.test(location.search);}
+var PUBLICO_50=true; /* até amanhã: público também vê 50%. Mudar para false para o público passar a 30%. */
+if(PUBLICO_50){window.MTA_VIP_REAL=v;v=true;}
 window.MTA_VIP=v;window.MTA_BN=v?"banner-bf":"banner-bf30";
 document.write('<link rel="preload" as="image" type="image/webp" imagesrcset="img/'+MTA_BN+'-720.webp 720w, img/'+MTA_BN+'-1036.webp 1036w" imagesizes="(min-width:760px) 540px, 100vw" fetchpriority="high">');})();
 </script>
@@ -511,7 +513,7 @@ CATS.forEach(c=>c.groups.forEach(g=>{g.items=g.items.filter(p=>!HIDDEN_IDS.inclu
 for(let i=CATS.length-1;i>=0;i--){CATS[i].groups=CATS[i].groups.filter(g=>g.items.length); if(!CATS[i].groups.length) CATS.splice(i,1);}
 // ===== PROMOÇÃO DE PREÇOS =====
 // on:true aplica o desconto a todos os produtos visíveis; on:false volta aos preços normais.
-const SALE={ on:true, pct:(window.MTA_VIP?50:30), label:(window.MTA_VIP?"Black Friday VIP":"Black Friday") };
+const SALE={ on:true, pct:(window.MTA_VIP?50:30), label:(window.MTA_VIP_REAL!==false&&window.MTA_VIP&&window.MTA_VIP_REAL!==undefined?"Black Friday VIP":(window.MTA_VIP&&window.MTA_VIP_REAL===undefined?"Black Friday VIP":"Black Friday")) };
 if(SALE.on) CATS.forEach(c=>c.groups.forEach(g=>g.items.forEach(p=>{
   if(p.price==null) return;
   const cut=v=>Math.round(v*(100-SALE.pct)/100);
@@ -907,7 +909,7 @@ document.getElementById('cta').addEventListener('click',e=>{e.preventDefault();c
 
 // ===== PROMOÇÃO (barra no topo) =====
 // Contagem de 24h igual para todos: termina sempre à meia-noite de Maputo e recomeça no dia seguinte.
-const PROMO={ on:true, text:(window.MTA_VIP?"<b>Black Friday VIP</b> · 50% desconto em tudo":"<b>Black Friday</b> · 30% desconto em tudo"), button:"Ver promoção" };
+const PROMO={ on:true, text:(window.MTA_VIP&&window.MTA_VIP_REAL!==false?"<b>Black Friday VIP</b> · 50% desconto em tudo":window.MTA_VIP?"<b>Black Friday</b> · 50% desconto em tudo":"<b>Black Friday</b> · 30% desconto em tudo"), button:"Ver promoção" };
 (function(){const bar=document.getElementById('ann'); if(!PROMO.on) return;
 document.getElementById('ann-t').innerHTML=PROMO.text; document.getElementById('ann-a').textContent=PROMO.button;
 const DAY=86400000, TZ=2*3600000; // Maputo = UTC+2

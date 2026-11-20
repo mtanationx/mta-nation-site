@@ -6,7 +6,7 @@
 <title>MTA Nation — Catálogo</title>
 <script>
 /* VIP: o link com ?vip dá 50%; o link normal dá 30%. Fica guardado no telemóvel. */
-(function(){var v=false;try{if(/[?&]publico\b/i.test(location.search)){localStorage.removeItem("mtaVip");}if(/[?&]vip\b/i.test(location.search)){localStorage.setItem("mtaVip","1");}v=localStorage.getItem("mtaVip")==="1";}catch(e){v=/[?&]vip\b/i.test(location.search);}
+(function(){var v=false;try{if(/[?&]publico\b/i.test(location.search)){sessionStorage.removeItem("mtaVip2");}if(/[?&]vip\b/i.test(location.search)){sessionStorage.setItem("mtaVip2","1");}localStorage.removeItem("mtaVip");localStorage.removeItem("mtaVip2");v=sessionStorage.getItem("mtaVip2")==="1";}catch(e){v=/[?&]vip\b/i.test(location.search);}
 var PUBLICO_50=false; /* até amanhã: público também vê 50%. Mudar para false para o público passar a 30%. */
 if(PUBLICO_50){window.MTA_VIP_REAL=v;v=true;}
 window.MTA_VIP=v;window.MTA_BN=v?"banner-bf":"banner-bf30";

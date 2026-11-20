@@ -631,7 +631,8 @@ function closeUpsell(){ const m=document.getElementById("ups"); if(m) m.classLis
 // ===== Carrinho (vários artigos numa só encomenda) =====
 let BAG=[]; try{ BAG=JSON.parse(localStorage.getItem("mtaBag")||"[]"); }catch(e){ BAG=[]; }
 function saveBag(){ try{ localStorage.setItem("mtaBag",JSON.stringify(BAG)); }catch(e){} renderBagBar(); }
-function addLine(p){ return `• ${p.name} — ${fmt(p.price)}${p.sizes?` (${p.sizeLabel||"tamanho"} a confirmar)`:""}${p.mats!==false?` · Cor: ${MATS.find(x=>x.id===mat).label}`:""}`; }
+function nomeCompleto(p){ const t=TIPO[p.catId]; if(!t||p.catId==="caixinha-mta"||p.catId==="perolas") return p.name; return /^(colar|anel|mascote|pingente|brinco|pérola|perola|conjunto)/i.test(p.name)?p.name:`${t} ${p.name}`; }
+function addLine(p){ return `• ${nomeCompleto(p)} — ${fmt(p.price)}${p.sizes?` (${p.sizeLabel||"tamanho"} a confirmar)`:""}${p.mats!==false?` · Cor: ${MATS.find(x=>x.id===mat).label}`:""}`; }
 function currentItems(withAdds){
   const adds=withAdds?upList.filter(p=>upSel.has(p.id)):[];
   return [{id:cur.id,name:cur.name,price:price()||0,lines:ORDER_LINES.slice()}]
@@ -876,7 +877,7 @@ function setOrder(){
   { const w=cur.opts?cur.opts[opt].was:cur.was, sv=cur.save||(w?w-price():0);
     const ws=sheet.querySelector("#was"), pe=sheet.querySelector("#poupa");
     ws.textContent=w?fmt(w):""; ws.hidden=!w; pe.textContent=sv?`Poupa ${fmt(sv)}`:""; pe.hidden=!sv; }
-  const lines=[`• ${cur.name}${cur.opts?` (${cur.opts[opt].label})`:""}${price()==null?"":` — ${fmt(price())}${SALE.on&&(cur.opts?cur.opts[opt].was:cur.was)?` (${SALE.label} -${SALE.pct}%)`:""}`}`];
+  const lines=[`• ${nomeCompleto(cur)}${cur.opts?` (${cur.opts[opt].label})`:""}${price()==null?"":` — ${fmt(price())}${SALE.on&&(cur.opts?cur.opts[opt].was:cur.was)?` (${SALE.label} -${SALE.pct}%)`:""}`}`];
   if(cur.sizes && size>=0) lines.push(`• ${cur.sizeLabel||"Tamanho"}: ${size===cur.sizes.length?"não sei, preciso de ajuda":cur.sizes[size]}`);
   if(cur.mats!==false) lines.push(`• Cor: ${MATS.find(x=>x.id===mat).label}`);
   ORDER_LINES=lines;

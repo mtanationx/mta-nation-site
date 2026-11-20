@@ -438,6 +438,7 @@ const CATS = [
       { id:"anel-onyx-a05", name:"Onyx A05", tag:"", price:1500, imgs:2, desc:"" },
       { id:"anel-onyx-a06", name:"Onyx A06", tag:"", price:1500, imgs:2, desc:"" },
       { id:"anel-onyx-a07", name:"Onyx A07", tag:"", price:1500, imgs:3, desc:"" },
+      { id:"anel-signet-onyx", name:"Signet Onyx", tag:"", price:2000, imgs:4, desc:"" },
     ]},
     { title:null, items:[
       { id:"figaro", name:"Anel Fígaro", tag:"", price:1500, imgs:1, desc:"" },
@@ -525,6 +526,7 @@ if(SALE.on) CATS.forEach(c=>c.groups.forEach(g=>g.items.forEach(p=>{
 const ALL = {}; CATS.forEach(c=>c.groups.forEach(g=>g.items.forEach(p=>{p.cat=c.name;p.catId=c.id;ALL[p.id]=p})));
 /* which photo shows each finish (photo number) */
 const FIN = {
+  "anel-signet-onyx":{ouro:1,prata:2},
   "anel-arc":{ouro:1,prata:2},
   "void":{ouro:1,prata:2},
   "davinci":{ouro:1,prata:2},

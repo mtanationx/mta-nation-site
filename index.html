@@ -37,11 +37,11 @@ document.write('<link rel="preload" as="image" type="image/webp" imagesrcset="im
   .tabs-in{max-width:1100px;margin:0 auto;display:flex;gap:8px;padding:10px 18px;overflow-x:auto;scrollbar-width:none}
   .tabs-in::-webkit-scrollbar{display:none}
   .tabs-row{position:relative}
-  .corf{display:flex;justify-content:center;padding:18px 14px 2px}
-  .corf-in{display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:#ececec}
-  .corf button{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;letter-spacing:.02em;color:#5a5e62;padding:7px 14px;border-radius:999px;background:transparent;transition:background .2s,color .2s}
-  .corf button i{width:11px;height:11px;border-radius:50%;display:inline-block}
-  .corf button[aria-pressed="true"]{background:#fff;color:#101820;font-weight:600;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+  .corf{display:flex;align-items:center;justify-content:center;gap:6px;padding:0 14px 10px}
+  .corf-l{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#8a8d90;margin-right:2px}
+  .corf button{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:#101820;padding:6px 12px;border-radius:999px;border:1.5px solid #e3e3e3;background:#fff}
+  .corf button i{width:14px;height:14px;border-radius:50%;display:inline-block}
+  .corf button[aria-pressed="true"]{border-color:#101820;background:#101820;color:#fff}
   .cf-hide{display:none!important}
   .tabs-in{position:relative;scroll-behavior:smooth}
   @media(min-width:900px){.tabs-in{justify-content:center}}
@@ -124,7 +124,7 @@ document.write('<link rel="preload" as="image" type="image/webp" imagesrcset="im
 
   /* Sections */
   main{max-width:1100px;margin:0 auto;padding:6px 14px 40px}
-  section.cat{padding-top:26px;scroll-margin-top:178px}
+  section.cat{padding-top:26px;scroll-margin-top:220px}
   html,body{overflow-x:clip}
   .cbn{overflow:hidden;margin:0 0 18px calc(50% - 50vw);width:100vw;aspect-ratio:5/2;background:#e9e9e9}
   @media(min-width:760px){.cbn{aspect-ratio:4/1;max-height:380px}}
@@ -307,6 +307,12 @@ document.write('<link rel="preload" as="image" type="image/webp" imagesrcset="im
   <div class="tabs-in" id="tabs"></div>
   <span class="tfade r" id="tfr"><button type="button" aria-label="Mais categorias"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button></span>
   </div>
+  <div class="corf" id="corf" role="group" aria-label="Filtrar por cor">
+    <span class="corf-l">Ver:</span>
+    <button data-cf="" aria-pressed="true">Todos</button>
+    <button data-cf="ouro" aria-pressed="false"><i style="background:url(img/swatch-ouro.jpg) center/cover"></i>Dourado</button>
+    <button data-cf="prata" aria-pressed="false"><i style="background:url(img/swatch-prata.jpg) center/cover"></i>Prateado</button>
+  </div>
 </nav>
 
 <div class="hero hero-img" id="heroLink" role="link" tabindex="0" aria-label="Black Friday — 50% desconto. Ver coleção">
@@ -325,13 +331,6 @@ document.write('<link rel="preload" as="image" type="image/webp" imagesrcset="im
   </div>
 </section>
 
-<div class="corf" id="corf" role="group" aria-label="Filtrar por cor">
-  <div class="corf-in">
-    <button data-cf="" aria-pressed="true">Todos</button>
-    <button data-cf="ouro" aria-pressed="false"><i style="background:url(img/swatch-ouro.jpg) center/cover"></i>Dourado</button>
-    <button data-cf="prata" aria-pressed="false"><i style="background:url(img/swatch-prata.jpg) center/cover"></i>Prateado</button>
-  </div>
-</div>
 <main id="main"></main>
 
 <div class="info">
@@ -976,7 +975,7 @@ document.getElementById("corf").addEventListener("click",e=>{
   COR_F=b.dataset.cf; try{ localStorage.setItem("mtaCor",COR_F); }catch(e){}
   applyCor();
   const first=document.querySelector("#main section.cat:not(.cf-hide)");
-  
+  if(first && scrollY>document.getElementById("main").offsetTop-250) first.scrollIntoView({behavior:"smooth"});
 });
 applyCor();
 </script>

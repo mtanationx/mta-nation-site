@@ -386,13 +386,13 @@ const CATS = [
     { title:null, items:[
       { id:"fio-cuban-8mm", name:"Cuban Chain 8mm", tag:"Fio", price:2500, imgs:1, desc:"" },
       { id:"fio-cuban-5mm", name:"Cuban Chain 5mm", tag:"Fio", price:1900, imgs:1, desc:"" },
-      { id:"fio-cuban-3mm", name:"Cuban Chain 3mm", tag:"Fio", price:1500, imgs:1, desc:"" },
+      { id:"fio-cuban-3mm", name:"Cuban Chain 3mm", tag:"Fio", price:1500, imgs:1, soldOutMats:["ouro"], desc:"" },
       { id:"fio-figaro-5mm", name:"Fígaro Chain 5mm", tag:"Fio", price:1900, imgs:1, soldOutMats:["ouro"], desc:"" },
       { id:"fio-figaro-3mm", name:"Fígaro Chain 3mm", tag:"Fio", price:1500, imgs:1, desc:"" },
       { id:"fio-rope-3mm", name:"Rope Chain 3mm", tag:"Fio", price:1500, imgs:3, desc:"" },
       { id:"fio-wheat-3mm", name:"Wheat Chain 3mm", tag:"Fio", price:1200, imgs:1, desc:"" },
       { id:"fio-curb-2mm", name:"Curb Chain 2mm", tag:"Fio", price:850, imgs:1, desc:"" },
-      { id:"fio-clip", name:"Clip Chain", tag:"Fio", price:1200, imgs:2, desc:"" },
+      { id:"fio-clip", name:"Clip Chain", tag:"Fio", price:1200, imgs:2, soldOutMats:["ouro"], desc:"" },
     ]},
   ]},
   { id:"mascotes", name:"Mascotes", groups:[
@@ -455,7 +455,7 @@ const CATS = [
     { title:"Colares", items:[
       { id:"perola-3mm", name:"Colar Pérola 3mm", tag:"Pérolas", price:1200, imgs:2, mats:false, desc:"" },
       { id:"perola-5mm", name:"Colar Pérola 5mm", tag:"Pérolas", price:1500, imgs:1, mats:false, desc:"" },
-      { id:"perola-crucifixo", name:"Colar Pérola com Crucifixo", tag:"Pérolas + pingente", price:2000, imgs:2, desc:"" },
+      { id:"perola-crucifixo", name:"Colar Pérola com Crucifixo", tag:"Pérolas + pingente", price:2000, imgs:2, soldOutMats:["ouro"], desc:"" },
       { id:"perola-bussola", name:"Colar Pérola com Bússola", tag:"Pérolas + pingente", price:2000, imgs:2, desc:"" },
     ]},
     { title:"Mascotes", items:[
@@ -577,7 +577,7 @@ const CAIXINHA_ID="caixinha";
 const COMBINA={ pingentes:["mascotes"], colares:["mascotes"], mascotes:["colares","pingentes"], aneis:["aneis"], perolas:["perolas","mascotes"], brincos:["pingentes"], "caixinha-mta":["pingentes"] };
 let ORDER_LINES=[];
 const TIPO={pingentes:"Pingente",colares:"Colar",mascotes:"Mascote",aneis:"Anel",perolas:"Pérolas",brincos:"Brincos","caixinha-mta":"Embalagem"};
-function upOK(p){ return p && p.price!=null && !p.soldOut && p.id!==cur.id && p.imgs; }
+function upOK(p){ return p && p.price!=null && !p.soldOut && !((p.soldOutMats||[]).includes(mat)) && p.id!==cur.id && p.imgs; }
 function pickUpsell(){
   const out=[], has=id=>out.some(x=>x.id===id);
   const cx=ALL[CAIXINHA_ID]; if(upOK(cx) && cur.catId!=="caixinha-mta") out.push(cx);

@@ -402,7 +402,7 @@ const CATS = [
     ]},
     { title:"5mm", items:[
       { id:"cuban-5mm", name:"Cuban 5mm", tag:"", price:1500, imgs:2, desc:"" },
-      { id:"figaro-5mm", name:"Fígaro 5mm", tag:"", price:1500, imgs:2, desc:"" },
+      { id:"figaro-5mm", name:"Fígaro 5mm", tag:"", price:1500, imgs:2, sizes:["19cm","23cm"], desc:"" },
       { id:"rope-5mm", name:"Rope 5mm", tag:"", price:1500, imgs:1, desc:"" },
     ]},
     { title:"3mm", items:[
@@ -851,7 +851,7 @@ function guideHTML(p){
   return `
     <p><b>Como medir:</b> dá uma volta ao pulso com uma fita métrica (ou um fio e depois mede-o com uma régua), logo acima do osso.</p>${SVG_WRIST}
     <table><tr><th>O teu pulso</th><th>Tamanho</th></tr>
-    <tr><td>até 17 cm</td><td><b>19cm</b></td></tr><tr><td>17 a 19 cm</td><td><b>21cm</b></td></tr>${p.sizes.includes("23cm")?`<tr><td>19 a 21 cm</td><td><b>23cm</b></td></tr>`:""}</table>
+    ${(()=>{const o=[["19cm",17],["21cm",19],["23cm",21]].filter(x=>p.sizes.includes(x[0]));let prev=0;return o.map(([k,m])=>{const r=prev?`${prev} a ${m} cm`:`até ${m} cm`;prev=m;return `<tr><td>${r}</td><td><b>${k}</b></td></tr>`}).join("")})()}</table>
     <div class="gcalc"><input id="gmm" inputmode="decimal" placeholder="Medida do pulso em cm, ex: 16,5"></div>
     <p class="gout" id="gout"></p>
     <p class="gnote">O mascote fica cerca de 2 cm mais largo que o pulso, para ficar confortável.</p>`;

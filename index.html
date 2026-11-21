@@ -974,8 +974,8 @@ document.getElementById("toTop").addEventListener("click",e=>{e.preventDefault()
   function render(){
     const q=norm(inp.value).trim();
     if(!q){ res.innerHTML=`<div class="srch-s">${["Anel","Colar","Mascote","Pingente","Pérola","Onyx","Cuban","Rope","Cruz"].map(t=>`<button data-q="${t}">${t}</button>`).join("")}</div>`; return; }
-    const words=q.split(/\s+/).map(w=>SIN[w]?SIN[w].split(" "):[w]);
-    const out=items().filter(x=>{const h=hay(x); return words.every(alts=>alts.some(a=>h.includes(a)));});
+    const words=q.replace(/([a-z])(\d)/g,"$1 $2").replace(/(\d)([a-z]{3,})/g,"$1 $2").split(/\s+/).filter(Boolean).map(w=>SIN[w]?SIN[w].split(" "):[w]);
+    const out=items().filter(x=>{const h=hay(x), hc=h.replace(/[\s\-]+/g,""); return words.every(alts=>alts.some(a=>h.includes(a)||hc.includes(a.replace(/[\s\-]+/g,""))));});
     res.innerHTML=out.length?out.map(({p,c})=>`<button class="srch-i" data-id="${p.id}">
       ${p.imgs?`<img src="img/t/${p.id}.jpg" alt="" loading="lazy">`:`<img alt="">`}
       <div><em>${TIPO[c.id]||c.name}</em><b>${esc(p.name)}</b><span>${p.price==null?"Sob consulta":`${p.opts?"desde ":""}${fmt(p.price)}`}${p.was?`<s>${fmt(p.was)}</s>`:""}${p.soldOut?`<i class="so">Esgotado</i>`:""}</span></div></button>`).join("")

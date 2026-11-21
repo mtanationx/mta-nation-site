@@ -142,6 +142,8 @@ const CORS={ouro:"D",prata:"P"};
 const PAYS=["Cash","POS","M-Pesa","e-Mola","BIM","BCI","Transferência","Outro"];
 const SOURCES=["Anúncio Instagram/Facebook","Cliente habitual","Passou na loja","Recomendação","Instagram (sem anúncio)","Outro"];
 const CTYPES=["Mensagem a clientes (POS)","Lista de transmissão WhatsApp","Status WhatsApp"];
+const GCATS=["Renda / Glória Mall","Salários e comissões","Stock e fornecedores","Marketing e anúncios","Embalagens","Internet e telefone","Transporte","Outros"];
+const GPAY=["Cash","Transferência","M-Pesa","e-Mola","Cartão","Outro"];
 const ROLES={seller:"Vendedor",manager:"Gerente",admin:"Admin"};
 const EXP_TYPES=["Portador diário","Internet (dados)","Yango","Outros"];
 function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("on"),2600);}
@@ -186,12 +188,12 @@ function render(){
   if(!S.user){ app.innerHTML=`<div class="login"><div class="lbox"><p>A carregar…</p></div></div>`; boot().then(render).catch(e=>{toast(e.message)}); return; }
   const admin=S.user.role==="admin";
   const mgr=admin||S.user.role==="manager";
-  const tabs=[["vender","Vender"],["fecho","Fecho"]].concat(mgr?[["caixa","Caixa"],["clientes","Clientes"],["campanhas","Marketing"]]:[],[["stock","Stock"]],admin?[["relatorio","Relatório"],["equipa","Equipa"]]:[]);
+  const tabs=[["vender","Vender"],["fecho","Fecho"]].concat(mgr?[["caixa","Caixa"],["gastos","Gastos"],["clientes","Clientes"],["campanhas","Marketing"]]:[],[["stock","Stock"]],admin?[["relatorio","Relatório"],["equipa","Equipa"]]:[]);
   app.innerHTML=`<div class="top"><span class="lg">MTA POS</span><div class="nav">${tabs.map(([k,l])=>`<button data-tab="${k}" class="${S.tab===k?"on":""}">${l}</button>`).join("")}</div>
     <div class="who"><span>${esc(S.user.name)}</span><button id="out">Sair</button></div></div><div id="view"></div>`;
   $$("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;render();});
   $("#out").onclick=async()=>{try{await api("/logout",{method:"POST"})}catch(e){} S.token=null;S.user=null;LS.set("posTok",null);render();};
-  ({vender:vVender,fecho:vFecho,caixa:vCaixa,clientes:vClientes,campanhas:vCampanhas,stock:vStock,relatorio:vRel,equipa:vEquipa})[S.tab]($("#view"));
+  ({vender:vVender,fecho:vFecho,caixa:vCaixa,gastos:vGastos,clientes:vClientes,campanhas:vCampanhas,stock:vStock,relatorio:vRel,equipa:vEquipa})[S.tab]($("#view"));
 }
 
 /* ----- login ----- */
@@ -420,6 +422,64 @@ async function vCaixa(v){
         if(w) w.location="https://wa.me/?text="+encodeURIComponent(t); m.remove(); toast("Recolha registada"); vCaixa(v);
       }catch(e){ if(w) w.close(); toast(e.message); } };
     document.body.appendChild(m); };
+}
+
+/* ----- gastos mensais ----- */
+async function vGastos(v){
+  S.gm=S.gm||S.today.slice(0,7);
+  v.innerHTML=`<div class="wrap"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><h2 style="margin:0;font-size:18px">Gastos do mês</h2>
+    <div class="row" style="flex-wrap:wrap"><input type="month" class="f" id="gm" value="${S.gm}" style="width:auto"><button class="btn sec" id="gcp">Copiar fixos do mês anterior</button><button class="btn" id="gnew">+ Gasto</button></div></div><div id="gb"><p class="empty">A carregar…</p></div></div>`;
+  $("#gm").onchange=e=>{S.gm=e.target.value;vGastos(v);};
+  $("#gnew").onclick=()=>gastoModal(null,()=>vGastos(v));
+  $("#gcp").onclick=async()=>{ try{ const r=await api("/giving/copy",{method:"POST",body:{to:S.gm}}); toast(r.n?`${r.n} gastos fixos copiados`:"Nada para copiar (marca os gastos fixos como “Repete todos os meses”)"); vGastos(v);}catch(e){toast(e.message);} };
+  let d; try{ d=await api("/giving?month="+S.gm); }catch(e){ $("#gb").innerHTML=`<p class="empty">${esc(e.message)}</p>`; return; }
+  const tillTot=d.till.reduce((a,x)=>a+x.amount,0), gTot=d.rows.reduce((a,x)=>a+x.amount,0), total=gTot+tillTot;
+  const res=d.sales.products-total, commTot=d.commissions.reduce((a,c)=>a+c.value,0);
+  const byCat={}; d.rows.forEach(x=>byCat[x.category||"Outros"]=(byCat[x.category||"Outros"]||0)+x.amount); if(tillTot) byCat["Despesas da caixa"]=tillTot;
+  const cats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]), max=cats.length?cats[0][1]:1;
+  const [y,mo]=S.gm.split("-"), mName=new Date(Date.UTC(+y,+mo-1,15)).toLocaleDateString("pt-PT",{month:"long",year:"numeric"});
+  $("#gb").innerHTML=`<p class="small muted" style="margin:8px 0 12px">${mName.charAt(0).toUpperCase()+mName.slice(1)}</p>
+    <div class="kpis"><div class="kpi"><small>Vendas (produtos)</small><b>${fmt(d.sales.products)}</b><div class="small muted">${d.sales.n} vendas · + ${fmt(d.sales.delivery)} transporte</div></div>
+      <div class="kpi"><small>Gastos</small><b>${fmt(total)}</b><div class="small muted">${d.rows.length} registados · caixa ${fmt(tillTot)}</div></div>
+      <div class="kpi" style="border-color:var(--ink)"><small>Resultado do mês</small><b style="color:${res>=0?"var(--grn)":"var(--red)"}">${res>=0?"":"− "}${fmt(Math.abs(res))}</b><div class="small muted">vendas − gastos</div></div>
+      ${commTot?`<div class="kpi"><small>Comissões calculadas</small><b>${fmt(commTot)}</b><div class="small muted">${d.commissions.map(c=>`${esc(c.name)} ${fmt(c.value)}`).join(" · ")}<br>regista em Gastos quando pagares</div></div>`:""}</div>
+    <div class="card"><div class="sec-h" style="margin-top:0"><h3 class="mont">POR CATEGORIA</h3></div>
+      ${cats.map(([k,val])=>`<div style="margin:8px 0"><div class="row small" style="justify-content:space-between"><span>${esc(k)}</span><b>${fmt(val)}</b></div><div style="height:8px;background:var(--bg);border-radius:6px;margin-top:4px"><div style="height:8px;width:${Math.max(2,val/max*100)}%;background:var(--ink);border-radius:6px"></div></div></div>`).join("")||`<p class="muted small">Sem gastos neste mês.</p>`}</div>
+    <div class="sec-h"><h3 class="mont">GASTOS</h3></div>
+    <div class="card" style="overflow-x:auto"><table class="t"><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Pagamento</th><th>Valor</th><th></th></tr>
+      ${d.rows.map(x=>`<tr data-g="${x.id}" style="cursor:pointer"><td class="small">${dmy(x.day)}</td><td><b>${esc(x.description||"—")}</b>${x.recurring?` <span class="tag">fixo</span>`:""}${x.notes?`<div class="small muted">${esc(x.notes)}</div>`:""}</td><td class="small">${esc(x.category||"")}</td><td class="small">${esc(x.method||"")}${x.paid_by?` · ${esc(x.paid_by)}`:""}</td><td class="fmt"><b>${fmt(x.amount)}</b></td><td>${x.has_receipt?"📎":""}</td></tr>`).join("")}
+      ${tillTot?`<tr id="tillrow" style="cursor:pointer"><td class="small">—</td><td><b>Despesas da caixa</b> <span class="small muted">(${d.till.length}, registadas no Fecho) ▾</span></td><td class="small">Caixa</td><td class="small">Cash</td><td class="fmt"><b>${fmt(tillTot)}</b></td><td></td></tr>${d.till.map(x=>`<tr class="tilld hide"><td class="small">${dmy(x.day)}</td><td class="small">${esc(x.type)}${x.notes?` · ${esc(x.notes)}`:""}</td><td class="small muted">Caixa</td><td class="small muted">${esc(x.by_name||"")}</td><td class="fmt small">${fmt(x.amount)}</td><td></td></tr>`).join("")}`:""}
+      ${!d.rows.length&&!tillTot?`<tr><td colspan="6" class="muted">Ainda sem gastos. Toca em “+ Gasto”.</td></tr>`:""}</table></div>`;
+  $$("[data-g]").forEach(t=>t.onclick=()=>gastoModal(d.rows.find(x=>x.id===+t.dataset.g),()=>vGastos(v)));
+  const tr=$("#tillrow"); if(tr) tr.onclick=()=>$$(".tilld").forEach(x=>x.classList.toggle("hide"));
+}
+function shrinkImage(file){ return new Promise((res,rej)=>{ const img=new Image(); const u=URL.createObjectURL(file);
+  img.onload=()=>{ const k=Math.min(1,1280/Math.max(img.width,img.height)); const c=document.createElement("canvas"); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k); c.getContext("2d").drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(u); res(c.toDataURL("image/jpeg",0.7)); };
+  img.onerror=()=>rej(new Error("Não consegui ler a foto")); img.src=u; }); }
+function gastoModal(g,after){
+  const isNew=!g; g=g||{day:S.today.slice(0,7)===S.gm?S.today:S.gm+"-01",description:"",category:GCATS[0],amount:"",method:"Transferência",paid_by:S.user.name,notes:"",recurring:0,has_receipt:0};
+  let receipt=null;
+  const m=document.createElement("div"); m.className="mod";
+  m.innerHTML=`<div class="mbox"><div class="row" style="justify-content:space-between"><h2>${isNew?"Novo gasto":"Editar gasto"}</h2><button class="qbtn" data-x>✕</button></div>
+    <label class="l">Descrição</label><input class="f" id="g_description" value="${esc(g.description)}" placeholder="ex: Renda dezembro, Salário Beatriz, Encomenda FOKSY">
+    <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Valor (MT)</label><input class="f" id="g_amount" inputmode="numeric" value="${g.amount}"></div><div style="flex:1"><label class="l">Data</label><input class="f" type="date" id="g_day" value="${esc(g.day)}"></div></div>
+    <label class="l">Categoria</label><div class="opts" id="gcat">${GCATS.map(c=>`<button class="opt ${g.category===c?"on":""}" data-cat="${esc(c)}">${esc(c)}</button>`).join("")}</div>
+    <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Pago com</label><select class="f" id="g_method">${GPAY.map(p=>`<option ${g.method===p?"selected":""}>${p}</option>`).join("")}</select></div><div style="flex:1"><label class="l">Pago por</label><input class="f" id="g_paid_by" value="${esc(g.paid_by||"")}"></div></div>
+    <label class="l">Notas</label><input class="f" id="g_notes" value="${esc(g.notes||"")}">
+    <label class="row small" style="gap:8px;margin-top:12px"><input type="checkbox" id="g_rec" ${g.recurring?"checked":""}> Repete todos os meses (renda, salários, internet…)</label>
+    <label class="l">Recibo / fatura</label><div class="row" style="flex-wrap:wrap"><label class="btn sec" style="cursor:pointer">📷 ${g.has_receipt?"Trocar foto":"Tirar / escolher foto"}<input type="file" id="g_file" accept="image/*" capture="environment" style="display:none"></label>${g.has_receipt?`<button class="btn sec" id="gview">Ver recibo</button>`:""}<span class="small muted" id="gfs"></span></div>
+    <div id="gimg"></div>
+    <button class="btn" id="gsv" style="width:100%;margin-top:14px">Guardar</button>${isNew?"":`<button class="btn sec" id="gdel" style="width:100%;margin-top:8px;color:var(--red)">Apagar gasto</button>`}</div>`;
+  let cat=g.category||GCATS[0];
+  $$("[data-cat]",m).forEach(b=>b.onclick=()=>{cat=b.dataset.cat;$$("[data-cat]",m).forEach(x=>x.classList.toggle("on",x===b));});
+  $("#g_file",m).onchange=async e=>{ const fl=e.target.files[0]; if(!fl) return; $("#gfs",m).textContent="A preparar…"; try{ receipt=await shrinkImage(fl); $("#gfs",m).textContent="Foto pronta ✓"; $("#gimg",m).innerHTML=`<img src="${receipt}" style="max-width:100%;border-radius:10px;margin-top:10px">`; }catch(err){ $("#gfs",m).textContent=err.message; } };
+  const gv=$("#gview",m); if(gv) gv.onclick=async()=>{ try{ const r=await api(`/giving/${g.id}/receipt`); $("#gimg",m).innerHTML=`<img src="${r.data}" style="max-width:100%;border-radius:10px;margin-top:10px">`; }catch(e){toast(e.message);} };
+  $("[data-x]",m).onclick=()=>m.remove(); m.onclick=e=>{if(e.target===m)m.remove();};
+  $("#gsv",m).onclick=async e=>{ const body={description:$("#g_description",m).value.trim(),amount:+$("#g_amount",m).value.replace(/\D/g,""),day:$("#g_day",m).value,category:cat,method:$("#g_method",m).value,paid_by:$("#g_paid_by",m).value.trim(),notes:$("#g_notes",m).value.trim(),recurring:$("#g_rec",m).checked?1:0};
+    if(receipt) body.receipt=receipt; e.target.disabled=true;
+    try{ if(isNew) await api("/giving",{method:"POST",body}); else await api("/giving/"+g.id,{method:"PUT",body}); m.remove(); toast("Gasto guardado"); after(); }catch(err){ toast(err.message); e.target.disabled=false; } };
+  const gd=$("#gdel",m); if(gd) gd.onclick=async()=>{ if(!confirmBox("Apagar este gasto?")) return; try{ await api("/giving/"+g.id,{method:"DELETE"}); m.remove(); toast("Gasto apagado"); after(); }catch(e){toast(e.message);} };
+  document.body.appendChild(m);
 }
 
 /* ----- clientes ----- */

@@ -16,6 +16,9 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS customers(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT UNIQUE, birthday TEXT, ring_size TEXT, wrist_size TEXT, instagram TEXT, source TEXT, notes TEXT, created TEXT, updated INTEGER)`,
   `CREATE TABLE IF NOT EXISTS campaigns(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, type TEXT, start TEXT, end TEXT, cost INTEGER NOT NULL DEFAULT 0, message TEXT, notes TEXT, active INTEGER NOT NULL DEFAULT 1, created TEXT)`,
   `CREATE TABLE IF NOT EXISTS campaign_sends(campaign_id INTEGER NOT NULL, customer_id INTEGER NOT NULL, ts INTEGER, user_id INTEGER, PRIMARY KEY(campaign_id,customer_id))`,
+  `CREATE TABLE IF NOT EXISTS giving(id INTEGER PRIMARY KEY AUTOINCREMENT, day TEXT NOT NULL, description TEXT, category TEXT, amount INTEGER NOT NULL, method TEXT, paid_by TEXT, notes TEXT, recurring INTEGER NOT NULL DEFAULT 0, has_receipt INTEGER NOT NULL DEFAULT 0, user_id INTEGER, ts INTEGER)`,
+  `CREATE INDEX IF NOT EXISTS giving_day ON giving(day)`,
+  `CREATE TABLE IF NOT EXISTS receipts(giving_id INTEGER PRIMARY KEY, data TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS cash_moves(id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, day TEXT, type TEXT NOT NULL, amount INTEGER NOT NULL, counted INTEGER, expected INTEGER, user_id INTEGER, notes TEXT)`,
 ];
 let ready = false;
@@ -433,6 +436,74 @@ export async function onRequest(ctx) {
     if (!mgr) return err("Só a gerência", 403);
     await db.prepare(`INSERT INTO campaign_sends(campaign_id,customer_id,ts,user_id) VALUES(?,?,?,?) ON CONFLICT DO NOTHING`).bind(+sentM[1], +body.customer_id, Date.now(), user.id).run();
     return json({ ok: true });
+  }
+
+  // Gastos mensais (Giving)
+  const monthRange = mo => { const end = new Date(Date.UTC(+mo.slice(0, 4), +mo.slice(5, 7), 0)).toISOString().slice(0, 10); return [mo + "-01", end]; };
+  if (path === "/giving" && m === "GET") {
+    if (!mgr) return err("Só a gerência", 403);
+    const mo = /^\d{4}-\d{2}$/.test(url.searchParams.get("month") || "") ? url.searchParams.get("month") : today().slice(0, 7);
+    const [a, b] = monthRange(mo);
+    const rows = (await db.prepare(`SELECT g.id,g.day,g.description,g.category,g.amount,g.method,g.paid_by,g.notes,g.recurring,g.has_receipt, u.name AS by_name FROM giving g LEFT JOIN users u ON u.id=g.user_id WHERE g.day BETWEEN ? AND ? ORDER BY g.day DESC, g.id DESC`).bind(a, b).all()).results;
+    const till = (await db.prepare(`SELECT e.id,e.day,e.type,e.amount,e.notes, u.name AS by_name FROM expenses e LEFT JOIN users u ON u.id=e.user_id WHERE e.day BETWEEN ? AND ? ORDER BY e.day DESC`).bind(a, b).all()).results;
+    const sales = await db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(subtotal),0) products, COALESCE(SUM(delivery),0) delivery FROM sales WHERE void=0 AND day BETWEEN ? AND ?`).bind(a, b).first();
+    const comm = (await db.prepare(`SELECT u.name, u.commission pct, SUM(s.subtotal) total FROM sales s JOIN users u ON u.id=s.user_id WHERE s.void=0 AND s.day BETWEEN ? AND ? AND u.commission>0 GROUP BY u.id`).bind(a, b).all()).results;
+    return json({ month: mo, rows, till, sales, commissions: comm.map(c => ({ ...c, value: Math.round(c.total * c.pct / 100) })) });
+  }
+  const GF = ["day", "description", "category", "method", "paid_by", "notes"];
+  async function saveReceipt(id, data) {
+    if (!data) return;
+    if (!/^data:image\/(jpeg|png|webp);base64,/.test(data) || data.length > 1500000) throw new Error("Foto inválida ou demasiado grande");
+    await db.prepare(`INSERT INTO receipts(giving_id,data) VALUES(?,?) ON CONFLICT(giving_id) DO UPDATE SET data=excluded.data`).bind(id, data).run();
+    await db.prepare(`UPDATE giving SET has_receipt=1 WHERE id=?`).bind(id).run();
+  }
+  if (path === "/giving" && m === "POST") {
+    if (!mgr) return err("Só a gerência", 403);
+    const amount = Math.round(+body.amount || 0);
+    if (!(amount > 0)) return err("Valor inválido");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(body.day || "")) return err("Data inválida");
+    const r = await db.prepare(`INSERT INTO giving(${GF.join(",")},amount,recurring,user_id,ts) VALUES(${GF.map(() => "?").join(",")},?,?,?,?)`).bind(...GF.map(k => String(body[k] || "").slice(0, 300)), amount, body.recurring ? 1 : 0, user.id, Date.now()).run();
+    try { await saveReceipt(r.meta.last_row_id, body.receipt); } catch (e) { return err(e.message); }
+    return json({ ok: true, id: r.meta.last_row_id });
+  }
+  if (path === "/giving/copy" && m === "POST") {
+    if (!mgr) return err("Só a gerência", 403);
+    const to = /^\d{4}-\d{2}$/.test(body.to || "") ? body.to : today().slice(0, 7);
+    const prev = new Date(Date.UTC(+to.slice(0, 4), +to.slice(5, 7) - 2, 1)).toISOString().slice(0, 7);
+    const [pa, pb] = monthRange(prev), [ta, tb] = monthRange(to);
+    const rec = (await db.prepare(`SELECT * FROM giving WHERE recurring=1 AND day BETWEEN ? AND ?`).bind(pa, pb).all()).results;
+    let n = 0;
+    for (const g of rec) {
+      const ex = await db.prepare(`SELECT id FROM giving WHERE day BETWEEN ? AND ? AND description=? AND category=?`).bind(ta, tb, g.description, g.category).first();
+      if (ex) continue;
+      const d = to + g.day.slice(7); const day = d > tb ? tb : d;
+      await db.prepare(`INSERT INTO giving(day,description,category,amount,method,paid_by,notes,recurring,user_id,ts) VALUES(?,?,?,?,?,?,?,1,?,?)`).bind(day, g.description, g.category, g.amount, g.method, g.paid_by, g.notes, user.id, Date.now()).run();
+      n++;
+    }
+    return json({ ok: true, n, from: prev });
+  }
+  const gM = path.match(/^\/giving\/(\d+)$/);
+  if (gM && m === "PUT") {
+    if (!mgr) return err("Só a gerência", 403);
+    const sets = [], b = [];
+    GF.forEach(k => { if (body[k] != null) { sets.push(`${k}=?`); b.push(String(body[k]).slice(0, 300)); } });
+    if (body.amount != null) { const a = Math.round(+body.amount || 0); if (!(a > 0)) return err("Valor inválido"); sets.push("amount=?"); b.push(a); }
+    if (body.recurring != null) { sets.push("recurring=?"); b.push(body.recurring ? 1 : 0); }
+    if (sets.length) await db.prepare(`UPDATE giving SET ${sets.join(",")} WHERE id=?`).bind(...b, +gM[1]).run();
+    try { await saveReceipt(+gM[1], body.receipt); } catch (e) { return err(e.message); }
+    return json({ ok: true });
+  }
+  if (gM && m === "DELETE") {
+    if (!mgr) return err("Só a gerência", 403);
+    await db.batch([db.prepare(`DELETE FROM receipts WHERE giving_id=?`).bind(+gM[1]), db.prepare(`DELETE FROM giving WHERE id=?`).bind(+gM[1])]);
+    return json({ ok: true });
+  }
+  const grM = path.match(/^\/giving\/(\d+)\/receipt$/);
+  if (grM && m === "GET") {
+    if (!mgr) return err("Só a gerência", 403);
+    const r = await db.prepare(`SELECT data FROM receipts WHERE giving_id=?`).bind(+grM[1]).first();
+    if (!r) return err("Sem recibo", 404);
+    return json({ data: r.data });
   }
 
   // Caixa (cash na loja)

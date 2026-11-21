@@ -248,6 +248,10 @@ if(MTA_BN)document.write('<link rel="preload" as="image" type="image/webp" image
   .badge.so{background:#101820}
   .card.sold .ph img{opacity:.5;filter:grayscale(.6)}
   .card.sold .go{background:#c9cbcd;color:#fff}
+  .stk-c{display:block;color:#c62828;font-size:11px;font-weight:700;margin-top:4px}
+  .stk{color:#c62828;font-weight:700;font-size:14px;margin:6px 0 0}
+  .stk:empty{display:none}
+  .mat.nostk{opacity:.4;text-decoration:line-through;pointer-events:none}
   .order.sold{background:#101820}
   .badge{position:absolute;top:8px;left:8px;background:#d6302a;color:#fff;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 8px;border-radius:4px}
   .card .tx{padding:10px 12px 12px;display:flex;flex-direction:column;gap:2px;flex:1}
@@ -846,7 +850,7 @@ function open(id, push=true){
     <div class="sb">
       <div class="tg">${esc(p.tag||p.cat)}</div>
       <h2>${esc(p.name)}</h2>
-      <div class="pr"><span id="pr"></span> <s id="was"></s> <em id="poupa"></em></div>
+      <div class="pr"><span id="pr"></span> <s id="was"></s> <em id="poupa"></em></div><p class="stk" id="stk"></p>
       ${p.desc?`<p class="ds">${esc(p.desc)}</p>`:""}
       ${p.opts?`<div class="lbl">Quantidade</div>${chips("opt",p.opts.map(o=>`${o.label} · ${fmt(o.price)}`),opt)}`:""}
       ${p.sizes?`<div class="lblrow"><div class="lbl" id="szl">${p.sizeLabel||"Tamanho"}</div><button class="guide-btn" id="gbtn" type="button">📏 Guia de tamanhos</button></div><div class="guide" id="guide" hidden>${guideHTML(p)}</div>${chips("size",[...p.sizes,"Não sei o meu tamanho"],size)}<p class="szhelp" id="szh" hidden>Sem problema! A nossa equipa ajuda-te a descobrir o teu tamanho pelo WhatsApp.</p>`:""}
@@ -951,6 +955,7 @@ function showFin(instant){
   gal.scrollTo({left:(f[mat]-1)*gal.clientWidth, behavior:instant?"auto":"smooth"});
 }
 function setOrder(){
+  stockUI();
   sheet.querySelector("#pr").textContent=price()==null?"Preço sob consulta":fmt(price());
   { const w=cur.opts?cur.opts[opt].was:cur.was, sv=cur.save||(w?w-price():0);
     const ws=sheet.querySelector("#was"), pe=sheet.querySelector("#poupa");
@@ -965,6 +970,60 @@ function setOrder(){
       o.href=waLink(`Olá MTA Nation! Gostava de ser avisado quando o ${cur.name}${fin} voltar ao stock.`);
       o.lastChild.textContent="Esgotado · Avisa-me quando chegar"; } else o.lastChild.textContent=price()==null?"Pedir preço pelo WhatsApp":"Encomendar pelo WhatsApp"; }
 }
+/* ===== Stock (Google Sheet publicada em CSV) ===== */
+const STOCK_URL="";   // link CSV de "Publicar na Web"
+const STOCK_LOW=5;
+let STK=null;
+function parseCSV(t){ const rows=[]; let row=[],f="",q=false;
+  for(let i=0;i<t.length;i++){ const c=t[i];
+    if(q){ if(c==='"'){ if(t[i+1]==='"'){f+='"';i++;} else q=false; } else f+=c; }
+    else if(c==='"') q=true; else if(c===","){ row.push(f); f=""; } else if(c==="\n"){ row.push(f); rows.push(row); row=[]; f=""; } else if(c!=="\r") f+=c; }
+  if(f||row.length){ row.push(f); rows.push(row); } return rows; }
+const MKEY={"dourado":"ouro","prateado":"prata"};
+function loadStock(csv){
+  const m={}; parseCSV(csv).slice(1).forEach(r=>{
+    const id=(r[5]||"").trim(); if(!id) return;
+    const cor=MKEY[(r[2]||"").trim().toLowerCase()]||"-", sz=(r[3]||"").trim().replace(/^—$/,"-")||"-";
+    const v=(r[4]||"").trim(), n=v===""?null:parseInt(v,10);
+    ((m[id]=m[id]||{})[cor]=m[id][cor]||{})[sz]=isNaN(n)?null:n;
+  }); return m; }
+// devolve {n, full}: soma dos valores e se todas as linhas têm número
+function stkSum(id,cor,sz){ const p=STK&&STK[id]; if(!p) return null; let n=0,full=true,any=false;
+  Object.keys(p).forEach(c=>{ if(cor&&c!==cor) return; Object.keys(p[c]).forEach(s=>{ if(sz&&s!==sz) return; any=true; const v=p[c][s]; if(v==null) full=false; else n+=v; }); });
+  return any?{n,full}:null; }
+const curCor=()=>cur.mats===false?"-":mat;
+function stockLabel(n){ return n===1?"Última unidade!":`Últimas ${n} unidades`; }
+function applyStock(){
+  if(!STK) return;
+  Object.values(ALL).forEach(p=>{ if(!STK[p.id]) return;
+    const t=stkSum(p.id); if(t&&t.full&&t.n===0) p.soldOut=true;
+    if(p.mats!==false) MATS.forEach(m=>{ const c=stkSum(p.id,m.id); if(c&&c.full&&c.n===0){ p.soldOutMats=p.soldOutMats||[]; if(!p.soldOutMats.includes(m.id)) p.soldOutMats.push(m.id); } });
+  });
+  document.querySelectorAll(".card[data-p]").forEach(el=>{ const p=ALL[el.dataset.p]; if(!p) return;
+    el.classList.toggle("sold",!!p.soldOut); const go=el.querySelector(".go"); if(go) go.textContent=p.soldOut?"ESGOTADO":"QUERO";
+    let tag=el.querySelector(".stk-c"); const t=stkSum(p.id), low=!p.soldOut&&t&&t.full&&t.n>0&&t.n<=STOCK_LOW;
+    if(low){ if(!tag){ tag=document.createElement("span"); tag.className="stk-c"; el.querySelector(".tx").appendChild(tag);} tag.textContent=stockLabel(t.n); }
+    else if(tag) tag.remove();
+  });
+  if(cur && sheet.classList.contains("on")) open(cur.id,false);
+}
+function stockUI(){
+  const el=sheet.querySelector("#stk"); if(!el) return; el.textContent="";
+  if(!STK||!STK[cur.id]||soldNow()) return;
+  const cor=curCor();
+  if(cur.sizes){ sheet.querySelectorAll('.mat[data-g="size"]').forEach(b=>{ const i=+b.dataset.i; if(i>=cur.sizes.length) return;
+      const q=stkSum(cur.id,cor,cur.sizes[i]); const out=q&&q.full&&q.n===0; b.classList.toggle("nostk",out);
+      if(out&&size===i){ size=-1; b.setAttribute("aria-pressed","false"); } }); }
+  const q=(cur.sizes&&size>=0&&size<cur.sizes.length)?stkSum(cur.id,cor,cur.sizes[size]):stkSum(cur.id,cor);
+  if(q&&q.full&&q.n>0&&q.n<=STOCK_LOW) el.textContent=stockLabel(q.n);
+}
+(function(){
+  try{ const c=JSON.parse(localStorage.getItem("mtaStock")||"null"); if(c&&Date.now()-c.t<864e5){ STK=c.d; applyStock(); } }catch(e){}
+  if(!STOCK_URL) return;
+  fetch(STOCK_URL+(STOCK_URL.includes("?")?"&":"?")+"_="+Date.now()).then(r=>r.ok?r.text():Promise.reject()).then(t=>{
+    STK=loadStock(t); try{ localStorage.setItem("mtaStock",JSON.stringify({t:Date.now(),d:STK})); }catch(e){} applyStock();
+  }).catch(()=>{});
+})();
 function soldNow(){ return !!cur && (!!cur.soldOut || (cur.mats!==false && (cur.soldOutMats||[]).includes(mat))); }
 function close(){
   sheet.classList.remove("on"); scrim.classList.remove("on"); document.body.classList.remove("lock");

@@ -14,13 +14,15 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS stock_log(id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, user_id INTEGER, product_id TEXT, cor TEXT, size TEXT, before INTEGER, after INTEGER, reason TEXT)`,
   `CREATE TABLE IF NOT EXISTS settings(k TEXT PRIMARY KEY, v TEXT)`,
   `CREATE TABLE IF NOT EXISTS customers(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT UNIQUE, birthday TEXT, ring_size TEXT, wrist_size TEXT, instagram TEXT, source TEXT, notes TEXT, created TEXT, updated INTEGER)`,
+  `CREATE TABLE IF NOT EXISTS campaigns(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, type TEXT, start TEXT, end TEXT, cost INTEGER NOT NULL DEFAULT 0, message TEXT, notes TEXT, active INTEGER NOT NULL DEFAULT 1, created TEXT)`,
+  `CREATE TABLE IF NOT EXISTS campaign_sends(campaign_id INTEGER NOT NULL, customer_id INTEGER NOT NULL, ts INTEGER, user_id INTEGER, PRIMARY KEY(campaign_id,customer_id))`,
   `CREATE TABLE IF NOT EXISTS cash_moves(id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, day TEXT, type TEXT NOT NULL, amount INTEGER NOT NULL, counted INTEGER, expected INTEGER, user_id INTEGER, notes TEXT)`,
 ];
 let ready = false;
 async function init(db) {
   if (ready) return;
   await db.batch(SCHEMA.map(s => db.prepare(s)));
-  for (const q of [`ALTER TABLE expenses ADD COLUMN paid_cash INTEGER NOT NULL DEFAULT 1`, `ALTER TABLE sales ADD COLUMN customer_id INTEGER`]) { try { await db.prepare(q).run(); } catch (e) { /* já existe */ } }
+  for (const q of [`ALTER TABLE expenses ADD COLUMN paid_cash INTEGER NOT NULL DEFAULT 1`, `ALTER TABLE sales ADD COLUMN customer_id INTEGER`, `ALTER TABLE sales ADD COLUMN campaign_id INTEGER`, `ALTER TABLE sales ADD COLUMN source TEXT`]) { try { await db.prepare(q).run(); } catch (e) { /* já existe */ } }
   try { await db.prepare(`CREATE INDEX IF NOT EXISTS sales_cust ON sales(customer_id)`).run(); } catch (e) {}
   ready = true;
 }
@@ -169,6 +171,7 @@ export async function onRequest(ctx) {
     const saleId = r.meta.last_row_id;
     const custId = await upsertCustomer(db, { name: (body.customer || "").slice(0, 80), phone: body.phone, source: body.channel });
     if (custId) await db.prepare(`UPDATE sales SET customer_id=? WHERE id=?`).bind(custId, saleId).run();
+    if (body.campaign_id || body.source) await db.prepare(`UPDATE sales SET campaign_id=?, source=? WHERE id=?`).bind(body.campaign_id ? +body.campaign_id : null, (body.source || "").slice(0, 60), saleId).run();
     await db.batch(items.map(i => db.prepare(`INSERT INTO sale_items(sale_id,product_id,name,cor,size,qty,unit_price,list_price) VALUES(?,?,?,?,?,?,?,?)`)
       .bind(saleId, i.product_id, (i.name || "").slice(0, 120), i.cor || "-", i.size || "-", Math.round(i.qty), Math.round(i.unit_price), i.list_price == null ? null : Math.round(i.list_price))));
     await adjustStock(db, user, items.map(i => ({ product_id: i.product_id, cor: i.cor || "-", size: i.size || "-", delta: -Math.round(i.qty) })), `venda #${saleId}`);
@@ -331,6 +334,67 @@ export async function onRequest(ctx) {
     if (!sets.length) return err("Nada para alterar");
     try { await db.prepare(`UPDATE customers SET ${sets.join(",")}, updated=? WHERE id=?`).bind(...b, Date.now(), +cM[1]).run(); }
     catch (e) { return err("Já existe um cliente com esse telefone"); }
+    return json({ ok: true });
+  }
+
+  // Campanhas
+  if (path === "/campaigns/active" && m === "GET") {
+    const d = today();
+    const rows = (await db.prepare(`SELECT id,name,type FROM campaigns WHERE active=1 AND (start IS NULL OR start='' OR start<=?) AND (end IS NULL OR end='' OR end>=?) ORDER BY id DESC`).bind(d, d).all()).results;
+    return json({ rows });
+  }
+  if (path === "/campaigns" && m === "GET") {
+    if (!mgr) return err("Só a gerência", 403);
+    const rows = (await db.prepare(`SELECT c.*,
+        (SELECT COUNT(*) FROM sales s WHERE s.campaign_id=c.id AND s.void=0) n,
+        (SELECT COALESCE(SUM(subtotal),0) FROM sales s WHERE s.campaign_id=c.id AND s.void=0) revenue,
+        (SELECT COUNT(*) FROM sales s WHERE s.campaign_id=c.id AND s.void=0 AND s.customer_id IS NOT NULL AND s.customer_id>0 AND NOT EXISTS (SELECT 1 FROM sales p WHERE p.customer_id=s.customer_id AND p.void=0 AND p.id<s.id)) new_customers,
+        (SELECT COUNT(*) FROM campaign_sends w WHERE w.campaign_id=c.id) sent,
+        (SELECT COUNT(DISTINCT w.customer_id) FROM campaign_sends w JOIN sales s ON s.customer_id=w.customer_id AND s.void=0 AND s.ts>w.ts AND s.ts<w.ts+14*86400000 WHERE w.campaign_id=c.id) bought_after
+      FROM campaigns c ORDER BY c.active DESC, c.id DESC`).all()).results;
+    const src = (await db.prepare(`SELECT COALESCE(NULLIF(source,''),'Sem informação') source, COUNT(*) n, SUM(subtotal) revenue FROM sales WHERE void=0 AND campaign_id IS NULL AND day>=? GROUP BY 1 ORDER BY revenue DESC`).bind(new Date(Date.now() + 7200e3 - 30 * 864e5).toISOString().slice(0, 10)).all()).results;
+    return json({ rows, sources30: src });
+  }
+  const CAF = ["name", "type", "start", "end", "message", "notes"];
+  if (path === "/campaigns" && m === "POST") {
+    if (!mgr) return err("Só a gerência", 403);
+    if (!String(body.name || "").trim()) return err("Dá um nome à campanha");
+    const r = await db.prepare(`INSERT INTO campaigns(${CAF.join(",")},cost,active,created) VALUES(${CAF.map(() => "?").join(",")},?,1,?)`).bind(...CAF.map(k => String(body[k] || "").slice(0, 1000)), Math.round(+body.cost || 0), today()).run();
+    return json({ ok: true, id: r.meta.last_row_id });
+  }
+  const caM = path.match(/^\/campaigns\/(\d+)$/);
+  if (caM && m === "PUT") {
+    if (!mgr) return err("Só a gerência", 403);
+    const sets = [], b = [];
+    CAF.forEach(k => { if (body[k] != null) { sets.push(`${k}=?`); b.push(String(body[k]).slice(0, 1000)); } });
+    if (body.cost != null) { sets.push("cost=?"); b.push(Math.round(+body.cost || 0)); }
+    if (body.active != null) { sets.push("active=?"); b.push(body.active ? 1 : 0); }
+    if (!sets.length) return err("Nada para alterar");
+    await db.prepare(`UPDATE campaigns SET ${sets.join(",")} WHERE id=?`).bind(...b, +caM[1]).run();
+    return json({ ok: true });
+  }
+  const audM = path.match(/^\/campaigns\/(\d+)\/audience$/);
+  if (audM && m === "GET") {
+    if (!mgr) return err("Só a gerência", 403);
+    const seg = url.searchParams.get("seg") || "all", cid = +audM[1];
+    let having = "", where = "WHERE c.phone<>''", b = [];
+    if (seg === "vip") { having = "HAVING total>=?"; b.push(+url.searchParams.get("min") || 5000); }
+    else if (seg === "inactive") { having = "HAVING last IS NOT NULL AND last<?"; b.push(Date.now() - (+url.searchParams.get("days") || 60) * 864e5); }
+    else if (seg === "nobuy") { having = "HAVING n=0"; }
+    else if (seg === "bday") { where += " AND substr(c.birthday,6,2)=?"; b.unshift(today().slice(5, 7)); }
+    else if (seg === "bought") {
+      const ids = (url.searchParams.get("ids") || "").split(",").filter(Boolean).slice(0, 200);
+      if (!ids.length) return json({ rows: [] });
+      where += ` AND c.id IN (SELECT s.customer_id FROM sales s JOIN sale_items i ON i.sale_id=s.id WHERE s.void=0 AND i.product_id IN (${ids.map(() => "?").join(",")}))`;
+      b = ids.concat(b);
+    }
+    const rows = (await db.prepare(`SELECT c.id,c.name,c.phone, COUNT(s.id) n, COALESCE(SUM(s.subtotal),0) total, MAX(s.ts) last, (SELECT ts FROM campaign_sends w WHERE w.campaign_id=${cid} AND w.customer_id=c.id) sent_ts FROM customers c LEFT JOIN sales s ON s.customer_id=c.id AND s.void=0 ${where} GROUP BY c.id ${having} ORDER BY c.name COLLATE NOCASE LIMIT 1000`).bind(...b).all()).results;
+    return json({ rows });
+  }
+  const sentM = path.match(/^\/campaigns\/(\d+)\/sent$/);
+  if (sentM && m === "POST") {
+    if (!mgr) return err("Só a gerência", 403);
+    await db.prepare(`INSERT INTO campaign_sends(campaign_id,customer_id,ts,user_id) VALUES(?,?,?,?) ON CONFLICT DO NOTHING`).bind(+sentM[1], +body.customer_id, Date.now(), user.id).run();
     return json({ ok: true });
   }
 

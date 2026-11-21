@@ -140,6 +140,8 @@ const fmt=n=>(Math.round(n||0)).toString().replace(/\B(?=(\d{3})+(?!\d))/g,".")+
 const COR={ouro:"Dourado",prata:"Prateado","-":""};
 const CORS={ouro:"D",prata:"P"};
 const PAYS=["Cash","POS","M-Pesa","e-Mola","BIM","BCI","Transferência","Outro"];
+const SOURCES=["Cliente habitual","Passou na loja","Recomendação","Instagram (sem anúncio)","Outro"];
+const CTYPES=["Anúncio Instagram/Facebook","Lista de transmissão WhatsApp","Status WhatsApp","Mensagem a clientes (POS)","Influencer","Evento","Outro"];
 const ROLES={seller:"Vendedor",manager:"Gerente",admin:"Admin"};
 const EXP_TYPES=["Portador diário","Internet (dados)","Yango","Outros"];
 function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("on"),2600);}
@@ -184,12 +186,12 @@ function render(){
   if(!S.user){ app.innerHTML=`<div class="login"><div class="lbox"><p>A carregar…</p></div></div>`; boot().then(render).catch(e=>{toast(e.message)}); return; }
   const admin=S.user.role==="admin";
   const mgr=admin||S.user.role==="manager";
-  const tabs=[["vender","Vender"],["fecho","Fecho"]].concat(mgr?[["caixa","Caixa"],["clientes","Clientes"]]:[],[["stock","Stock"]],admin?[["relatorio","Relatório"],["equipa","Equipa"]]:[]);
+  const tabs=[["vender","Vender"],["fecho","Fecho"]].concat(mgr?[["caixa","Caixa"],["clientes","Clientes"],["campanhas","Campanhas"]]:[],[["stock","Stock"]],admin?[["relatorio","Relatório"],["equipa","Equipa"]]:[]);
   app.innerHTML=`<div class="top"><span class="lg">MTA POS</span><div class="nav">${tabs.map(([k,l])=>`<button data-tab="${k}" class="${S.tab===k?"on":""}">${l}</button>`).join("")}</div>
     <div class="who"><span>${esc(S.user.name)}</span><button id="out">Sair</button></div></div><div id="view"></div>`;
   $$("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;render();});
   $("#out").onclick=async()=>{try{await api("/logout",{method:"POST"})}catch(e){} S.token=null;S.user=null;LS.set("posTok",null);render();};
-  ({vender:vVender,fecho:vFecho,caixa:vCaixa,clientes:vClientes,stock:vStock,relatorio:vRel,equipa:vEquipa})[S.tab]($("#view"));
+  ({vender:vVender,fecho:vFecho,caixa:vCaixa,clientes:vClientes,campanhas:vCampanhas,stock:vStock,relatorio:vRel,equipa:vEquipa})[S.tab]($("#view"));
 }
 
 /* ----- login ----- */
@@ -287,14 +289,16 @@ function drawCart(){
   $("#pay").onclick=checkout;
 }
 function confirmBox(t){ return window.confirm(t); }
-function checkout(){
+async function checkout(){
   const admin=S.user.role==="admin"||S.user.role==="manager";
+  let camps=[]; try{ camps=(await api("/campaigns/active")).rows; }catch(e){}
   const sub=S.cart.reduce((a,i)=>a+i.unit_price*i.qty,0);
-  const f={channel:"Loja",payment:"",delivery:0,customer:"",phone:"",notes:"",user_id:S.user.id};
+  const f={channel:"Loja",payment:"",delivery:0,customer:"",phone:"",notes:"",user_id:S.user.id,src:""};
   const m=document.createElement("div"); m.className="mod";
   const draw=()=>{
     m.innerHTML=`<div class="mbox"><div class="row" style="justify-content:space-between"><h2>Finalizar venda</h2><button class="qbtn" data-x>✕</button></div>
       <label class="l">Local da venda</label><div class="opts">${["Loja","WhatsApp","Instagram"].map(c=>`<button class="opt ${f.channel===c?"on":""}" data-ch="${c}">${c}</button>`).join("")}</div>
+      <label class="l">Veio de onde?</label><div class="opts">${camps.map(c=>`<button class="opt ${f.src==="c"+c.id?"on":""}" data-src="c${c.id}">📣 ${esc(c.name)}</button>`).join("")}${SOURCES.map(x=>`<button class="opt ${f.src===x?"on":""}" data-src="${esc(x)}">${esc(x)}</button>`).join("")}</div>
       <label class="l">Meio de pagamento</label><div class="pay">${PAYS.map(c=>`<button class="opt ${f.payment===c?"on":""}" data-py="${c}">${c}</button>`).join("")}</div>
       <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Transporte (MT)</label><input class="f" id="dl" inputmode="numeric" value="${f.delivery||""}" placeholder="0"></div>
       ${admin?`<div style="flex:1"><label class="l">Vendido por</label><select class="f" id="us">${S.users.filter(u=>u.active).map(u=>`<option value="${u.id}" ${u.id===f.user_id?"selected":""}>${esc(u.name)}</option>`).join("")}</select></div>`:""}</div>
@@ -302,11 +306,12 @@ function checkout(){
       <p class="small" id="cinfo" style="margin:6px 0 0;color:var(--grn);font-weight:600"></p>
       <label class="l">Observações</label><input class="f" id="nt" value="${esc(f.notes)}">
       <div class="tot"><span>Total a pagar</span><span id="tp">${fmt(sub+(+f.delivery||0))}</span></div>
-      <button class="btn grn" id="go" style="width:100%" ${f.payment?"":"disabled"}>${f.payment?"Confirmar venda":"Escolhe o meio de pagamento"}</button></div>`;
+      <button class="btn grn" id="go" style="width:100%" ${f.payment&&f.src?"":"disabled"}>${!f.src?"Escolhe de onde veio o cliente":!f.payment?"Escolhe o meio de pagamento":"Confirmar venda"}</button></div>`;
     const keep=()=>{f.delivery=+($("#dl",m).value.replace(/\D/g,""))||0;f.customer=$("#cn",m).value;f.phone=$("#cp",m).value;f.notes=$("#nt",m).value;const us=$("#us",m);if(us)f.user_id=+us.value;};
     $("[data-x]",m).onclick=()=>m.remove();
     $$("[data-ch]",m).forEach(b=>b.onclick=()=>{keep();f.channel=b.dataset.ch;draw();});
     $$("[data-py]",m).forEach(b=>b.onclick=()=>{keep();f.payment=b.dataset.py;draw();});
+    $$("[data-src]",m).forEach(b=>b.onclick=()=>{keep();f.src=b.dataset.src;draw();});
     $("#dl",m).oninput=()=>{keep();$("#tp",m).textContent=fmt(sub+(f.delivery||0));};
     ["#cn","#nt"].forEach(x=>$(x,m).oninput=keep);
     const look=async()=>{ keep(); const ph=f.phone.replace(/\D/g,""); const ci=$("#cinfo",m); if(ph.length<9){ci.textContent="";return;}
@@ -316,7 +321,7 @@ function checkout(){
       }catch(e){} };
     let lt; $("#cp",m).oninput=()=>{clearTimeout(lt);lt=setTimeout(look,350);}; if(f.phone) look();
     $("#go",m).onclick=async e=>{ keep(); e.target.disabled=true; e.target.textContent="A guardar…";
-      try{ const items=S.cart.map(i=>({...i})); const r=await api("/sales",{method:"POST",body:{...f,items}});
+      try{ const items=S.cart.map(i=>({...i})); const extra=f.src.startsWith("c")&&/^c\d+$/.test(f.src)?{campaign_id:+f.src.slice(1),source:""}:{campaign_id:null,source:f.src}; const r=await api("/sales",{method:"POST",body:{...f,...extra,items}});
         items.forEach(i=>{const k=`${i.product_id}|${i.cor}|${i.size}`; if(S.stock[k]!=null) S.stock[k]=Math.max(0,S.stock[k]-i.qty);});
         S.cart=[]; S.vip=false; saveCart(); done(m,{...f,items,number:r.number,id:r.id,ts:Date.now(),sub});
       }catch(err){ toast(err.message); e.target.disabled=false; e.target.textContent="Confirmar venda"; } };
@@ -448,6 +453,63 @@ async function custModal(id,after){
   $("#csv",m).onclick=async()=>{ const body={}; F.forEach(([k])=>body[k]=$("#c_"+k,m).value.trim());
     try{ if(id) await api("/customers/"+id,{method:"PUT",body}); else await api("/customers",{method:"POST",body}); m.remove(); toast("Cliente guardado"); after&&after(); }catch(e){toast(e.message);} };
   document.body.appendChild(m);
+}
+
+/* ----- campanhas ----- */
+async function vCampanhas(v){
+  v.innerHTML=`<div class="wrap"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><h2 style="margin:0;font-size:18px">Campanhas</h2><button class="btn" id="ncp">+ Campanha</button></div><div id="cpb"><p class="empty">A carregar…</p></div></div>`;
+  $("#ncp").onclick=()=>campEdit(null,()=>vCampanhas(v));
+  let r; try{ r=await api("/campaigns"); }catch(e){ $("#cpb").innerHTML=`<p class="empty">${esc(e.message)}</p>`; return; }
+  const card=c=>{ const cps=c.n?c.cost/c.n:null, roas=c.cost?c.revenue/c.cost:null;
+    return `<div class="card" style="margin-bottom:10px;${c.active?"":"opacity:.6"}"><div class="row" style="justify-content:space-between;align-items:flex-start"><div><b style="font-size:15px">${esc(c.name)}</b><div class="small muted">${esc(c.type||"")}${c.start?` · ${dmy(c.start)}`:""}${c.end?` → ${dmy(c.end)}`:""}${c.active?"":" · terminada"}</div></div><div class="row"><button class="chip" data-ed="${c.id}">Editar</button>${/WhatsApp|POS/.test(c.type||"")?`<button class="chip on" data-send="${c.id}">Enviar mensagens</button>`:""}</div></div>
+      <div class="kpis" style="margin:10px 0 0;grid-template-columns:repeat(auto-fit,minmax(110px,1fr))">
+        <div class="kpi"><small>Vendas</small><b>${c.n}</b></div><div class="kpi"><small>Receita</small><b>${fmt(c.revenue)}</b></div>
+        <div class="kpi"><small>Clientes novos</small><b>${c.new_customers}</b></div><div class="kpi"><small>Custo</small><b>${fmt(c.cost)}</b></div>
+        <div class="kpi"><small>Custo por venda</small><b>${cps==null?"—":fmt(cps)}</b></div><div class="kpi"><small>Retorno</small><b style="color:${roas==null?"inherit":roas>=3?"var(--grn)":roas<1?"var(--red)":"inherit"}">${roas==null?"—":roas.toFixed(1)+"×"}</b></div>
+        ${c.sent?`<div class="kpi"><small>Mensagens enviadas</small><b>${c.sent}</b><div class="small muted">${c.bought_after} compraram em 14 dias</div></div>`:""}</div></div>`; };
+  $("#cpb").innerHTML=(r.rows.length?r.rows.map(card).join(""):`<div class="card"><p class="muted">Ainda sem campanhas. Cria a primeira (ex: “Black Friday — anúncio Instagram”) e na venda o vendedor escolhe de onde veio o cliente.</p></div>`)
+    +`<div class="sec-h"><h3 class="mont">VENDAS SEM CAMPANHA · ÚLTIMOS 30 DIAS</h3></div><div class="card"><table class="t"><tr><th>Origem</th><th>Vendas</th><th>Receita</th></tr>${r.sources30.map(x=>`<tr><td>${esc(x.source)}</td><td>${x.n}</td><td class="fmt">${fmt(x.revenue)}</td></tr>`).join("")||`<tr><td colspan="3" class="muted">—</td></tr>`}</table></div>`;
+  $$("[data-ed]").forEach(b=>b.onclick=()=>campEdit(r.rows.find(c=>c.id===+b.dataset.ed),()=>vCampanhas(v)));
+  $$("[data-send]").forEach(b=>b.onclick=()=>campSend(r.rows.find(c=>c.id===+b.dataset.send),()=>vCampanhas(v)));
+}
+function campEdit(c,after){
+  c=c||{name:"",type:CTYPES[0],start:S.today,end:"",cost:0,message:"",notes:"",active:1};
+  const m=document.createElement("div"); m.className="mod";
+  m.innerHTML=`<div class="mbox"><div class="row" style="justify-content:space-between"><h2>${c.id?"Editar campanha":"Nova campanha"}</h2><button class="qbtn" data-x>✕</button></div>
+    <label class="l">Nome</label><input class="f" id="k_name" value="${esc(c.name)}" placeholder="ex: Black Friday — anúncio anéis">
+    <label class="l">Tipo</label><select class="f" id="k_type">${CTYPES.map(t=>`<option ${c.type===t?"selected":""}>${t}</option>`).join("")}</select>
+    <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Início</label><input class="f" type="date" id="k_start" value="${esc(c.start||"")}"></div><div style="flex:1"><label class="l">Fim</label><input class="f" type="date" id="k_end" value="${esc(c.end||"")}"></div></div>
+    <label class="l">Custo total (MT)</label><input class="f" id="k_cost" inputmode="numeric" value="${c.cost||""}" placeholder="quanto pagaste no anúncio (0 se grátis)">
+    <label class="l">Mensagem WhatsApp (usa {nome} para o nome do cliente)</label><textarea class="f" id="k_message" rows="4" placeholder="Olá {nome}! 🖤 ...">${esc(c.message||"")}</textarea>
+    <label class="l">Notas</label><input class="f" id="k_notes" value="${esc(c.notes||"")}">
+    ${c.id?`<label class="row small" style="gap:8px;margin-top:12px"><input type="checkbox" id="k_active" ${c.active?"checked":""}> Ativa (aparece na venda em “Veio de onde?”)</label>`:""}
+    <button class="btn" id="ksv" style="width:100%;margin-top:14px">Guardar</button></div>`;
+  $("[data-x]",m).onclick=()=>m.remove(); m.onclick=e=>{if(e.target===m)m.remove();};
+  $("#ksv",m).onclick=async()=>{ const body={}; ["name","type","start","end","message","notes"].forEach(k=>body[k]=$("#k_"+k,m).value); body.cost=+$("#k_cost",m).value.replace(/\D/g,"")||0; const a=$("#k_active",m); if(a) body.active=a.checked?1:0;
+    try{ if(c.id) await api("/campaigns/"+c.id,{method:"PUT",body}); else await api("/campaigns",{method:"POST",body}); m.remove(); toast("Campanha guardada"); after(); }catch(e){toast(e.message);} };
+  document.body.appendChild(m);
+}
+function campSend(c,after){
+  const cats=[...new Set(S.products.map(p=>p.cat))];
+  const m=document.createElement("div"); m.className="mod"; let seg="all", cat=cats[0], rows=[];
+  const msgFor=x=>(c.message||"").replace(/\{nome\}/gi,(x.name||"").split(" ")[0]||"").trim();
+  m.innerHTML=`<div class="mbox" style="max-width:640px"><div class="row" style="justify-content:space-between"><div><h2>Enviar: ${esc(c.name)}</h2><div class="small muted" id="prog"></div></div><button class="qbtn" data-x>✕</button></div>
+    ${c.message?`<div class="card small" style="background:var(--bg);white-space:pre-wrap;margin:10px 0">${esc(c.message)}</div>`:`<p class="small" style="color:var(--red)">Esta campanha não tem mensagem. Edita a campanha e escreve-a primeiro.</p>`}
+    <label class="l">Para quem</label><div class="opts">${[["all","Todos"],["vip","VIP (gastou 5.000+)"],["inactive","Sem compras há 60+ dias"],["bday","Aniversário este mês"],["bought","Compraram categoria…"]].map(([k,l])=>`<button class="opt ${seg===k?"on":""}" data-seg="${k}">${l}</button>`).join("")}</div>
+    <div id="catw" class="hide"><label class="l">Categoria</label><select class="f" id="cat">${cats.map(x=>`<option>${esc(x)}</option>`).join("")}</select></div>
+    <div id="aud" style="margin-top:12px"></div>
+    <p class="small muted">Toca em “Enviar”: abre o WhatsApp com a mensagem pronta. Envia e volta aqui para o próximo. Envia aos poucos (não centenas de uma vez) para o WhatsApp não bloquear o número.</p></div>`;
+  const load=async()=>{ $("#aud",m).innerHTML=`<p class="muted small">A carregar…</p>`;
+    let q=`seg=${seg}`; if(seg==="bought") q+="&ids="+S.products.filter(p=>p.cat===cat).map(p=>p.id).join(",");
+    try{ rows=(await api(`/campaigns/${c.id}/audience?${q}`)).rows; }catch(e){ $("#aud",m).innerHTML=`<p class="muted">${esc(e.message)}</p>`; return; }
+    draw(); };
+  const draw=()=>{ const sent=rows.filter(x=>x.sent_ts).length; $("#prog",m).textContent=`${sent}/${rows.length} enviados neste grupo`;
+    $("#aud",m).innerHTML=rows.map(x=>`<div class="ci" style="align-items:center"><div><b>${esc(x.name||"Sem nome")}</b><div class="v">+${esc(x.phone)} · ${x.n} compras · ${fmt(x.total)}</div></div>${x.sent_ts?`<span class="tag" style="background:#e6f4ea;color:var(--grn)">✓ Enviado</span>`:`<a class="btn grn" style="padding:8px 14px;text-decoration:none" target="_blank" data-w="${x.id}" href="https://wa.me/${esc(x.phone)}?text=${encodeURIComponent(msgFor(x))}">Enviar</a>`}</div>`).join("")||`<p class="muted small">Nenhum cliente neste grupo.</p>`;
+    $$("[data-w]",m).forEach(a=>a.onclick=()=>{ const id=+a.dataset.w; api(`/campaigns/${c.id}/sent`,{method:"POST",body:{customer_id:id}}).then(()=>{ const x=rows.find(r=>r.id===id); if(x) x.sent_ts=Date.now(); draw(); }).catch(e=>toast(e.message)); }); };
+  $$("[data-seg]",m).forEach(b=>b.onclick=()=>{ seg=b.dataset.seg; $$("[data-seg]",m).forEach(x=>x.classList.toggle("on",x===b)); $("#catw",m).classList.toggle("hide",seg!=="bought"); load(); });
+  $("#cat",m).onchange=e=>{cat=e.target.value;load();};
+  $("[data-x]",m).onclick=()=>{m.remove();after();}; m.onclick=e=>{if(e.target===m){m.remove();after();}};
+  document.body.appendChild(m); load();
 }
 
 /* ----- stock ----- */

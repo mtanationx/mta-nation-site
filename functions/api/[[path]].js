@@ -28,7 +28,7 @@ let ready = false;
 async function init(db) {
   if (ready) return;
   await db.batch(SCHEMA.map(s => db.prepare(s)));
-  for (const q of [`ALTER TABLE expenses ADD COLUMN paid_cash INTEGER NOT NULL DEFAULT 1`, `ALTER TABLE sales ADD COLUMN customer_id INTEGER`, `ALTER TABLE sales ADD COLUMN campaign_id INTEGER`, `ALTER TABLE sales ADD COLUMN source TEXT`]) { try { await db.prepare(q).run(); } catch (e) { /* já existe */ } }
+  for (const q of [`ALTER TABLE expenses ADD COLUMN paid_cash INTEGER NOT NULL DEFAULT 1`, `ALTER TABLE sales ADD COLUMN customer_id INTEGER`, `ALTER TABLE sales ADD COLUMN campaign_id INTEGER`, `ALTER TABLE sales ADD COLUMN source TEXT`, `ALTER TABLE logistics ADD COLUMN pay_method TEXT`, `ALTER TABLE logistics ADD COLUMN pickup_method TEXT`]) { try { await db.prepare(q).run(); } catch (e) { /* já existe */ } }
   try { await db.prepare(`CREATE INDEX IF NOT EXISTS sales_cust ON sales(customer_id)`).run(); } catch (e) {}
   ready = true;
 }
@@ -452,8 +452,8 @@ export async function onRequest(ctx) {
     const sales = await db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(subtotal),0) products, COALESCE(SUM(delivery),0) delivery FROM sales WHERE void=0 AND day BETWEEN ? AND ?`).bind(a, b).first();
     const comm = (await db.prepare(`SELECT u.name, u.commission pct, SUM(s.subtotal) total FROM sales s JOIN users u ON u.id=s.user_id WHERE s.void=0 AND s.day BETWEEN ? AND ? AND u.commission>0 GROUP BY u.id`).bind(a, b).all()).results;
     // Logística: pagamento da encomenda conta no mês da encomenda; levantamento no mês da chegada
-    const logOrders = (await db.prepare(`SELECT id,name,order_day day,mzn amount,via,brand FROM logistics WHERE mzn>0 AND order_day BETWEEN ? AND ? ORDER BY order_day DESC`).bind(a, b).all()).results;
-    const logPickups = (await db.prepare(`SELECT id,name,COALESCE(NULLIF(arrival_day,''),order_day) day,pickup amount,via,brand FROM logistics WHERE pickup>0 AND COALESCE(NULLIF(arrival_day,''),order_day) BETWEEN ? AND ? ORDER BY day DESC`).bind(a, b).all()).results;
+    const logOrders = (await db.prepare(`SELECT id,name,order_day day,mzn amount,via,brand,pay_method method FROM logistics WHERE mzn>0 AND order_day BETWEEN ? AND ? ORDER BY order_day DESC`).bind(a, b).all()).results;
+    const logPickups = (await db.prepare(`SELECT id,name,COALESCE(NULLIF(arrival_day,''),order_day) day,pickup amount,via,brand,pickup_method method FROM logistics WHERE pickup>0 AND COALESCE(NULLIF(arrival_day,''),order_day) BETWEEN ? AND ? ORDER BY day DESC`).bind(a, b).all()).results;
     return json({ month: mo, rows, till, logOrders, logPickups, sales, commissions: comm.map(c => ({ ...c, value: Math.round(c.total * c.pct / 100) })) });
   }
   const GF = ["day", "description", "category", "method", "paid_by", "notes"];
@@ -524,10 +524,10 @@ export async function onRequest(ctx) {
       }
       await db.prepare(`INSERT INTO settings(k,v) VALUES('logistics_seeded','1') ON CONFLICT(k) DO NOTHING`).run();
     }
-    const rows = (await db.prepare(`SELECT id,name,order_day,arrival_day,status,via,usd,mzn,pickup,supplier,brand,tracking,notes,has_file FROM logistics ORDER BY order_day DESC, id DESC`).all()).results;
+    const rows = (await db.prepare(`SELECT id,name,order_day,arrival_day,status,via,usd,mzn,pickup,supplier,brand,tracking,notes,has_file,pay_method,pickup_method FROM logistics ORDER BY order_day DESC, id DESC`).all()).results;
     return json({ rows });
   }
-  const LF = ["name", "order_day", "arrival_day", "status", "via", "supplier", "brand", "tracking", "notes"];
+  const LF = ["name", "order_day", "arrival_day", "status", "via", "supplier", "brand", "tracking", "notes", "pay_method", "pickup_method"];
   const numOrNull = v => v === "" || v == null ? null : +String(v).replace(",", ".");
   async function saveLogFile(id, data) {
     if (!data) return;

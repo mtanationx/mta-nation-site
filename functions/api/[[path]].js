@@ -178,6 +178,16 @@ export async function onRequest(ctx) {
     return json({ ok: true });
   }
 
+  const delM = path.match(/^\/sales\/(\d+)$/);
+  if (delM && m === "DELETE") {
+    if (!admin) return err("Só o admin pode apagar vendas", 403);
+    const s = await db.prepare(`SELECT void FROM sales WHERE id=?`).bind(+delM[1]).first();
+    if (!s) return err("Venda não encontrada", 404);
+    if (!s.void) return err("Anula a venda primeiro (para o stock voltar)");
+    await db.batch([db.prepare(`DELETE FROM sale_items WHERE sale_id=?`).bind(+delM[1]), db.prepare(`DELETE FROM sales WHERE id=?`).bind(+delM[1])]);
+    return json({ ok: true });
+  }
+
   // Despesas
   if (path === "/expenses" && m === "POST") {
     const amount = Math.round(+body.amount || 0);

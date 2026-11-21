@@ -581,7 +581,7 @@ const MATS = [
 ];
 // Categorias escondidas por agora (voltam mais tarde)
 const HIDDEN_CATS=["conjuntos"];
-const MENU_EXTRA=CATS.filter(c=>c.id==="conjuntos"); MENU_EXTRA.forEach(c=>c.groups.forEach(g=>{g.items=g.items.filter(p=>p.imgs)}));
+const MENU_EXTRA=CATS.filter(c=>c.id==="conjuntos"); MENU_EXTRA.forEach(c=>c.groups.forEach(g=>{g.items=g.items.filter(p=>p.imgs); g.items.forEach(p=>{p.price=null; delete p.save;})}));
 for(let i=CATS.length-1;i>=0;i--) if(HIDDEN_CATS.includes(CATS[i].id)) CATS.splice(i,1);
 // Produtos escondidos por agora
 const HIDDEN_IDS=["caixa-5","caixa-7"];
@@ -698,8 +698,8 @@ function renderUpsell(){
       <img src="img/t/${p.id}.jpg" alt="" loading="lazy">
       <div class="ups-t"><em>${TIPO[p.catId]||""}</em><b>${esc(p.name)}</b><span>${fmt(p.price)}${p.was?` <s>${fmt(p.was)}</s>`:""}</span></div>
       <button class="ups-a" data-add="${p.id}" aria-pressed="${on}">${on?"✓ Adicionado":"+ Adicionar"}</button></div>`}).join("")}</div>
-    ${BAG.length?`<p class="ups-bag">+ ${BAG.length} ${BAG.length===1?"artigo":"artigos"} já no carrinho (${fmt(bagTotal(BAG))})</p>`:""}
-    <button class="ups-go" data-go>${(upSel.size||BAG.length)?`Encomendar pelo WhatsApp · ${fmt(total+bagTotal(BAG))}`:"Continuar para o WhatsApp"}</button>
+    ${BAG.length?`<p class="ups-bag">+ ${BAG.length} ${BAG.length===1?"artigo":"artigos"} já no carrinho (${totTxt(BAG)})</p>`:""}
+    <button class="ups-go" data-go>${(upSel.size||BAG.length)?`Encomendar pelo WhatsApp · ${totTxt(BAG.concat([{price:price()}]),total-(price()||0))}`:"Continuar para o WhatsApp"}</button>
     <button class="ups-more" data-more><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9.5" cy="19.5" r="1.4"/><circle cx="17.5" cy="19.5" r="1.4"/><path d="M2.5 3.5h2.6l2.3 11.2a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.1L20.8 8H6.1"/></svg>Adicionar ao carrinho e continuar a comprar</button>
     <button class="ups-sk" data-skip>Não, obrigado${BAG.length?" — encomendar só o carrinho + esta peça":""}</button>
   </div>`;
@@ -712,13 +712,14 @@ function nomeCompleto(p){ const t=TIPO[p.catId]; if(!t||p.catId==="caixinha-mta"
 function addLine(p){ return `• ${nomeCompleto(p)} — ${fmt(p.price)}${p.sizes?` (${p.sizeLabel||"tamanho"} a confirmar)`:""}${p.mats!==false?` · Cor: ${MATS.find(x=>x.id===mat).label}`:""}`; }
 function currentItems(withAdds){
   const adds=withAdds?upList.filter(p=>upSel.has(p.id)):[];
-  return [{id:cur.id,name:cur.name,price:price()||0,lines:ORDER_LINES.slice()}]
+  return [{id:cur.id,name:cur.name,price:price(),lines:ORDER_LINES.slice()}]
     .concat(adds.map(p=>({id:p.id,name:p.name,price:p.price,lines:[addLine(p)]})));
 }
 function bagTotal(items){ return items.reduce((a,x)=>a+(x.price||0),0); }
+function totTxt(items,extra){ const t=bagTotal(items)+(extra||0), q=items.some(x=>x.price==null); return t?fmt(t)+(q?" + conjunto":""):(q?"preço a confirmar":fmt(0)); }
 function sendOrder(items){
   let msg=`Olá MTA Nation! Quero encomendar:\n\n`+items.map(x=>x.lines.join("\n")).join("\n\n");
-  if(items.length>1) msg+=`\n\nTotal: ${fmt(bagTotal(items))}`;
+  if(items.length>1) msg+=`\n\nTotal: ${fmt(bagTotal(items))}${items.some(x=>x.price==null)?" + preço do conjunto (a confirmar)":""}`;
   BAG=[]; saveBag(); closeUpsell(); location.href=waLink(msg);
 }
 function goWhats(withAdds){ sendOrder(BAG.concat(currentItems(withAdds))); }
@@ -732,7 +733,7 @@ function renderBagBar(){
   let bar=document.getElementById("bagbar");
   if(!bar){ bar=document.createElement("button"); bar.id="bagbar"; bar.className="bagbar"; bar.onclick=openBag; document.body.appendChild(bar); }
   const n=BAG.length; bar.classList.toggle("on",n>0); document.body.classList.toggle("hasbag",n>0);
-  bar.innerHTML=`<span class="bb-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9.5" cy="19.5" r="1.4"/><circle cx="17.5" cy="19.5" r="1.4"/><path d="M2.5 3.5h2.6l2.3 11.2a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.1L20.8 8H6.1"/></svg><b>${n}</b></span><span class="bb-t">${n} ${n===1?"artigo":"artigos"} · ${fmt(bagTotal(BAG))}</span><span class="bb-go">Ver carrinho →</span>`;
+  bar.innerHTML=`<span class="bb-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9.5" cy="19.5" r="1.4"/><circle cx="17.5" cy="19.5" r="1.4"/><path d="M2.5 3.5h2.6l2.3 11.2a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.1L20.8 8H6.1"/></svg><b>${n}</b></span><span class="bb-t">${n} ${n===1?"artigo":"artigos"} · ${totTxt(BAG)}</span><span class="bb-go">Ver carrinho →</span>`;
 }
 function openBag(){
   let m=document.getElementById("ups");
@@ -746,9 +747,9 @@ function renderBag(){
     <div class="ups-k">A tua encomenda</div><h3>O teu carrinho</h3>
     <div class="ups-l">${BAG.map((x,i)=>`<div class="ups-i">
       <img src="img/t/${x.id}.jpg" alt="" loading="lazy">
-      <div class="ups-t"><b>${esc(x.name)}</b><span>${fmt(x.price)}</span><small>${esc(x.lines.slice(1).map(l=>l.replace(/^•\s*/,"")).join(" · "))}</small></div>
+      <div class="ups-t"><b>${esc(x.name)}</b><span>${x.price==null?"Preço sob consulta":fmt(x.price)}</span><small>${esc(x.lines.slice(1).map(l=>l.replace(/^•\s*/,"")).join(" · "))}</small></div>
       <button class="ups-rm" data-rm="${i}" aria-label="Remover">×</button></div>`).join("")||`<p class="ups-empty">O carrinho está vazio.</p>`}</div>
-    ${BAG.length?`<button class="ups-go" data-bagsend>Encomendar pelo WhatsApp · ${fmt(bagTotal(BAG))}</button>`:""}
+    ${BAG.length?`<button class="ups-go" data-bagsend>Encomendar pelo WhatsApp · ${totTxt(BAG)}</button>`:""}
     <button class="ups-sk" data-x>Continuar a comprar</button>
   </div>`;
 }
@@ -962,7 +963,7 @@ function setOrder(){
   { const o=sheet.querySelector("#order"), sn=soldNow(); o.classList.toggle("sold",sn);
     if(sn){ const fin=cur.soldOut?"":` (${MATS.find(x=>x.id===mat).label})`;
       o.href=waLink(`Olá MTA Nation! Gostava de ser avisado quando o ${cur.name}${fin} voltar ao stock.`);
-      o.lastChild.textContent="Esgotado · Avisa-me quando chegar"; } else o.lastChild.textContent="Encomendar pelo WhatsApp"; }
+      o.lastChild.textContent="Esgotado · Avisa-me quando chegar"; } else o.lastChild.textContent=price()==null?"Pedir preço pelo WhatsApp":"Encomendar pelo WhatsApp"; }
 }
 function soldNow(){ return !!cur && (!!cur.soldOut || (cur.mats!==false && (cur.soldOutMats||[]).includes(mat))); }
 function close(){

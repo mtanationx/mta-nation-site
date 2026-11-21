@@ -48,7 +48,13 @@ const err = (msg, status = 400) => json({ error: msg }, status);
 // Data de Maputo (UTC+2)
 const today = () => new Date(Date.now() + 2 * 3600e3).toISOString().slice(0, 10);
 // Telefone normalizado: só dígitos; 9 dígitos a começar por 8 → +258
-function normPhone(p) { let d = String(p || "").replace(/\D/g, ""); if (d.length === 9 && /^8/.test(d)) d = "258" + d; if (d.startsWith("00")) d = d.slice(2); return d.length >= 9 ? d : ""; }
+function normPhone(p) {
+  const t = String(p || "").trim(); let d = t.replace(/\D/g, ""); if (!d) return "";
+  if (t.startsWith("00")) d = d.slice(2);
+  if (d.startsWith("258")) return d.length === 12 && /^2588[2-7]/.test(d) ? d : "";
+  if (/^(\+|00)/.test(t)) return d.length >= 8 && d.length <= 15 ? d : "";
+  return d.length === 9 && /^8[2-7]/.test(d) ? "258" + d : "";
+}
 async function upsertCustomer(db, { name, phone, source }) {
   const ph = normPhone(phone); if (!ph) return null;
   const ex = await db.prepare(`SELECT id,name FROM customers WHERE phone=?`).bind(ph).first();
@@ -203,6 +209,7 @@ export async function onRequest(ctx) {
       if (!mgr) return err("Só a gerência pode registar em nome de outro vendedor", 403);
       sellerId = +body.user_id;
     }
+    if (String(body.phone || "").trim() && !normPhone(body.phone)) return err("Número de telefone inválido. Um número de Moçambique tem 9 dígitos (ex: 84 123 4567).");
     const subtotal = items.reduce((a, i) => a + Math.round(i.unit_price) * Math.round(i.qty), 0);
     const day = mgr && /^\d{4}-\d{2}-\d{2}$/.test(body.day || "") ? body.day : today();
     const r = await db.prepare(`INSERT INTO sales(day,ts,user_id,channel,payment,delivery,subtotal,customer,phone,notes) VALUES(?,?,?,?,?,?,?,?,?,?)`)

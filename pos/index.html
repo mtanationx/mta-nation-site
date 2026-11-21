@@ -155,6 +155,17 @@ function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");clea
 const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 function dmy(day){const [y,m,d]=day.split("-");return `${d}/${m}/${y}`;}
 function hm(ts){return new Date(ts).toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit",timeZone:"Africa/Maputo"});}
+/* Validação de telefone: Moçambique = 9 dígitos a começar por 82–87 (ou com 258 à frente). Estrangeiro: começar por + ou 00. */
+function phoneCheck(raw){
+  const t=String(raw||"").trim(); if(!t) return {ok:true,empty:true};
+  let d=t.replace(/\D/g,"");
+  const intl=/^(\+|00)/.test(t); if(t.startsWith("00")) d=d.slice(2);
+  if(d.startsWith("258")){ const n=d.slice(3); if(n.length!==9) return {ok:false,msg:`Número de Moçambique com ${n.length} dígitos depois do 258. Tem de ter 9 (ex: +258 84 123 4567).`}; d=n; }
+  else if(intl) return d.length>=8&&d.length<=15?{ok:true,norm:d}:{ok:false,msg:"Número estrangeiro inválido. Confirma o indicativo e os dígitos."};
+  if(d.length!==9) return {ok:false,msg:`O número tem ${d.length} ${d.length===1?"dígito":"dígitos"}. Um número de Moçambique tem 9 (ex: 84 123 4567).${d.length>9?" Há dígitos a mais.":" Faltam dígitos."}`};
+  if(!/^8[2-7]/.test(d)) return {ok:false,msg:"Um número de Moçambique começa por 82, 83, 84, 85, 86 ou 87. Para número estrangeiro, começa com + e o indicativo (ex: +27…)."};
+  return {ok:true,norm:"258"+d};
+}
 function waNum(p){let d=String(p||"").replace(/\D/g,""); if(d.length===9&&/^8/.test(d)) d="258"+d; return d;}
 
 /* Promoção: mesmas fases do site (público) */
@@ -311,7 +322,7 @@ async function checkout(){
       <label class="l">Meio de pagamento</label><div class="pay">${PAYS.map(c=>`<button class="opt ${f.payment===c?"on":""}" data-py="${c}">${c}</button>`).join("")}</div>
       <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Transporte (MT)</label><input class="f" id="dl" inputmode="numeric" value="${f.delivery||""}" placeholder="0"></div>
       ${admin?`<div style="flex:1"><label class="l">Vendido por</label><select class="f" id="us">${S.users.filter(u=>u.active).map(u=>`<option value="${u.id}" ${u.id===f.user_id?"selected":""}>${esc(u.name)}</option>`).join("")}</select></div>`:""}</div>
-      <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Nome do cliente</label><input class="f" id="cn" value="${esc(f.customer)}"></div><div style="flex:1"><label class="l">Telefone</label><input class="f" id="cp" inputmode="tel" value="${esc(f.phone)}" placeholder="84 000 0000"></div></div>
+      <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Nome do cliente</label><input class="f" id="cn" value="${esc(f.customer)}"></div><div style="flex:1"><label class="l">Telefone</label><input class="f" id="cp" inputmode="tel" value="${esc(f.phone)}" placeholder="84 000 0000"><p class="small" id="cperr" style="color:var(--red);font-weight:600;margin:6px 0 0"></p></div></div>
       <p class="small" id="cinfo" style="margin:6px 0 0;color:var(--grn);font-weight:600"></p>
       <label class="l">Observações</label><input class="f" id="nt" value="${esc(f.notes)}">
       <div class="tot"><span>Total a pagar</span><span id="tp">${fmt(sub+(+f.delivery||0))}</span></div>
@@ -323,13 +334,14 @@ async function checkout(){
     $$("[data-src]",m).forEach(b=>b.onclick=()=>{keep();f.src=b.dataset.src;draw();});
     $("#dl",m).oninput=()=>{keep();$("#tp",m).textContent=fmt(sub+(f.delivery||0));};
     ["#cn","#nt"].forEach(x=>$(x,m).oninput=keep);
-    const look=async()=>{ keep(); const ph=f.phone.replace(/\D/g,""); const ci=$("#cinfo",m); if(ph.length<9){ci.textContent="";return;}
+    const phv=()=>{ const c=phoneCheck($("#cp",m).value); $("#cperr",m).textContent=c.ok?"":c.msg; $("#cp",m).style.borderColor=c.ok?"":"var(--red)"; return c; };
+    const look=async()=>{ keep(); const ci=$("#cinfo",m); const c=phv(); if(!c.ok||c.empty){ci.textContent="";return;}
       try{ const r=await api("/customers/lookup?phone="+encodeURIComponent(f.phone)); const c=r.customer;
         if(c){ if(!$("#cn",m).value&&c.name){$("#cn",m).value=c.name;keep();} ci.textContent=`Cliente conhecido: ${c.name||"sem nome"} · ${c.n} ${c.n===1?"compra":"compras"} · ${fmt(c.total)}${c.ring_size?` · anel ${c.ring_size}`:""}${c.wrist_size?` · mascote ${c.wrist_size}`:""}`; }
         else ci.textContent="Cliente novo: fica guardado na base de dados.";
       }catch(e){} };
     let lt; $("#cp",m).oninput=()=>{clearTimeout(lt);lt=setTimeout(look,350);}; if(f.phone) look();
-    $("#go",m).onclick=async e=>{ keep(); e.target.disabled=true; e.target.textContent="A guardar…";
+    $("#go",m).onclick=async e=>{ keep(); const pc=phv(); if(!pc.ok){ toast("Corrige o número de telefone"); $("#cp",m).focus(); return; } e.target.disabled=true; e.target.textContent="A guardar…";
       try{ const items=S.cart.map(i=>({...i})); const extra=f.src.startsWith("c")&&/^c\d+$/.test(f.src)?{campaign_id:+f.src.slice(1),source:""}:{campaign_id:null,source:f.src}; const r=await api("/sales",{method:"POST",body:{...f,...extra,items}});
         items.forEach(i=>{const k=`${i.product_id}|${i.cor}|${i.size}`; if(S.stock[k]!=null) S.stock[k]=Math.max(0,S.stock[k]-i.qty);});
         S.cart=[]; S.vip=false; saveCart(); done(m,{...f,items,number:r.number,id:r.id,ts:Date.now(),sub});
@@ -598,7 +610,7 @@ async function custModal(id,after){
     <button class="btn" id="csv" style="width:100%;margin-top:14px">${id?"Guardar":"Criar cliente"}</button>
     ${id?`<div class="sec-h"><h3 class="mont">HISTÓRICO DE COMPRAS</h3></div>${sales.length?sales.map(s=>`<div class="ci" style="${s.void?"opacity:.45;text-decoration:line-through":""}"><div><b>${dmy(s.day)}</b> <span class="small muted">${hm(s.ts)} · ${esc(s.channel)} · ${esc(s.payment)} · ${esc(s.seller)}</span><div class="v">${s.items.map(i=>esc((i.qty>1?i.qty+"x ":"")+itemLabel(i))).join("<br>")}</div></div><b class="fmt">${fmt(s.subtotal)}</b></div>`).join(""):`<p class="muted small">Sem compras registadas.</p>`}`:""}</div>`;
   $("[data-x]",m).onclick=()=>m.remove(); m.onclick=e=>{if(e.target===m)m.remove();};
-  $("#csv",m).onclick=async()=>{ const body={}; F.forEach(([k])=>body[k]=$("#c_"+k,m).value.trim());
+  $("#csv",m).onclick=async()=>{ const body={}; F.forEach(([k])=>body[k]=$("#c_"+k,m).value.trim()); const pc=phoneCheck(body.phone); if(!pc.ok||pc.empty){ toast(pc.empty?"Escreve o telefone":pc.msg); return; }
     try{ if(id) await api("/customers/"+id,{method:"PUT",body}); else await api("/customers",{method:"POST",body}); m.remove(); toast("Cliente guardado"); after&&after(); }catch(e){toast(e.message);} };
   document.body.appendChild(m);
 }

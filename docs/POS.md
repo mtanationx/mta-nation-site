@@ -1,0 +1,22 @@
+# MTA POS — notas técnicas
+
+Sistema de vendas da loja (Glória Mall) em **mz.mtanation.com/pos**.
+
+## Arquitetura
+- `pos/index.html` — app (uma página). Funciona em tablet, telemóvel e computador.
+- `pos/products.json` — lista de artigos (gerada a partir do catálogo `index.html`; preço de tabela sem desconto).
+- `functions/api/[[path]].js` — API (Cloudflare Pages Functions). Base de dados D1 com binding **`DB`** (base `mta-pos`). As tabelas criam-se sozinhas.
+- O site do catálogo lê o stock em `/api/stock` (CSV no mesmo formato da Google Sheet antiga).
+
+## Regras
+- Login por PIN (4–8 dígitos, único por pessoa). Admin: relatórios, equipa, stock, anular vendas, apagar despesas.
+- Cada venda baixa o stock da variante (produto · cor · tamanho) se essa linha tiver número. Anular devolve o stock.
+- Preço por defeito = tabela − desconto da promoção do site (público; VIP com a caixa "Cliente VIP"). Conjuntos sem desconto. O preço pode ser alterado em cada linha.
+- Fecho: produtos, transporte, despesas, comissão (% por pessoa, sobre produtos sem transporte), totais por pagamento e por local.
+- Dia = data de Maputo (UTC+2).
+
+## Endpoints
+`GET /api/status` · `POST /api/setup` · `POST /api/login` · `POST /api/logout` · `GET /api/boot` · `GET|POST /api/sales` · `POST /api/sales/:id/void` · `POST /api/expenses` · `DELETE /api/expenses/:id` · `GET|PUT /api/stock` · `POST /api/stock/import` · `GET /api/stock/log` · `POST /api/users` · `PUT /api/users/:id` · `PUT /api/settings` · `GET /api/report?from&to`
+
+## Teste local
+`wrangler pages dev . --d1 DB=pos-local --port 8788`

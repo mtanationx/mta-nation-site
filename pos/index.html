@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#101820">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<title>MTA POS</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#101820;--mut:#6b7075;--line:#e6e7e8;--bg:#f5f5f4;--red:#c62828;--grn:#1e8e3e;--gold:#c9a24a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:Poppins,system-ui,sans-serif;font-size:15px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+h1,h2,h3,.mont{font-family:Montserrat,Poppins,sans-serif;letter-spacing:.04em}
+.hide{display:none!important}
+/* topo */
+.top{background:var(--ink);color:#fff;display:flex;align-items:center;gap:6px;padding:0 10px;height:56px;position:sticky;top:0;z-index:20}
+.top .lg{font-family:Montserrat;font-weight:800;letter-spacing:.18em;font-size:15px;margin-right:8px;white-space:nowrap}
+.nav{display:flex;gap:2px;overflow-x:auto;flex:1;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav button{color:#aab;padding:8px 12px;border-radius:8px;font-weight:600;white-space:nowrap;font-size:14px}
+.nav button.on{background:#ffffff1a;color:#fff}
+.who{font-size:12px;color:#ccd;white-space:nowrap;display:flex;align-items:center;gap:8px}
+.who button{color:#fff;border:1px solid #ffffff40;border-radius:8px;padding:5px 9px;font-size:12px}
+/* login */
+.login{min-height:100%;display:flex;align-items:center;justify-content:center;background:var(--ink);padding:20px}
+.lbox{background:#fff;border-radius:20px;padding:28px 24px;width:100%;max-width:340px;text-align:center}
+.lbox h1{margin:0 0 4px;font-size:20px;letter-spacing:.2em}
+.lbox p{color:var(--mut);margin:0 0 18px;font-size:13px}
+.dots{display:flex;gap:12px;justify-content:center;margin:6px 0 18px}
+.dots i{width:14px;height:14px;border-radius:50%;border:2px solid var(--ink)}
+.dots i.f{background:var(--ink)}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pad button{height:62px;border-radius:14px;background:var(--bg);font-size:22px;font-weight:600}
+.pad button:active{background:#e3e4e5}
+.lerr{color:var(--red);min-height:20px;font-size:13px;margin-top:10px}
+.lbox input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px}
+/* geral */
+.wrap{max-width:1200px;margin:0 auto;padding:14px}
+.card{background:#fff;border-radius:14px;padding:14px;border:1px solid var(--line)}
+.btn{background:var(--ink);color:#fff;border-radius:12px;padding:12px 16px;font-weight:600}
+.btn.sec{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.btn.grn{background:var(--grn)}
+.btn.red{background:var(--red)}
+.btn:disabled{opacity:.4}
+.chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600;white-space:nowrap}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.row{display:flex;gap:8px;align-items:center}
+.muted{color:var(--mut)}
+.small{font-size:12px}
+.fmt{white-space:nowrap}
+input.f,select.f,textarea.f{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff}
+label.l{display:block;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin:12px 0 6px}
+/* vender */
+.sell{display:grid;grid-template-columns:1fr 380px;gap:14px;align-items:start}
+.sell>div{min-width:0}
+html,body{overflow-x:hidden}
+.srch{position:sticky;top:56px;background:var(--bg);padding:2px 0 10px;z-index:5}
+.srch input{width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);font-size:16px}
+.cats{display:flex;gap:6px;overflow-x:auto;margin-top:8px;scrollbar-width:none}
+.cats::-webkit-scrollbar{display:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.pc{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;text-align:left;display:flex;flex-direction:column}
+.pc img,.pc .ni{width:100%;aspect-ratio:1;object-fit:cover;background:#f0f0ef;display:block}
+.pc .ni{display:flex;align-items:center;justify-content:center;color:#bbb;font-size:11px}
+.pc b{font-size:12.5px;padding:7px 8px 0;line-height:1.25}
+.pc span{font-size:12px;padding:2px 8px 8px;color:var(--mut)}
+.pc .st{color:var(--red);font-weight:700;font-size:11px;padding:0 8px 8px}
+.cart{position:sticky;top:70px}
+.cart h3{margin:0 0 10px;font-size:14px;letter-spacing:.12em}
+.ci{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.ci b{font-size:13.5px}
+.ci .v{font-size:12px;color:var(--mut)}
+.ci .ctl{display:flex;align-items:center;gap:6px;grid-column:1/3}
+.ci .ctl input{width:92px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;text-align:right}
+.qbtn{width:30px;height:30px;border-radius:8px;background:var(--bg);font-weight:700}
+.tot{display:flex;justify-content:space-between;font-weight:700;font-size:18px;margin:12px 0}
+.disc{font-size:12px;color:var(--mut)}
+.empty{color:var(--mut);text-align:center;padding:30px 0;font-size:13px}
+.cartbar{display:none}
+/* modal */
+.mod{position:fixed;inset:0;background:#0008;z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.mbox{background:#fff;border-radius:18px 18px 0 0;width:100%;max-width:560px;max-height:92vh;overflow:auto;padding:18px 18px calc(18px + env(safe-area-inset-bottom))}
+@media(min-width:700px){.mod{align-items:center}.mbox{border-radius:18px}}
+.mbox h2{margin:0 0 2px;font-size:18px}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opt{border:1.5px solid var(--line);border-radius:10px;padding:9px 13px;font-weight:600;min-width:52px;position:relative;background:#fff}
+.opt.on{border-color:var(--ink);background:var(--ink);color:#fff}
+.opt small{display:block;font-size:10px;font-weight:600;opacity:.75}
+.opt.zero small{color:var(--red);opacity:1}
+.opt.on.zero small{color:#ffb4b4}
+.pay{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+/* fecho */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px}
+.kpi small{display:block;color:var(--mut);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.kpi b{font-size:20px}
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+table.t th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);padding:8px 6px;border-bottom:1px solid var(--line)}
+table.t td{padding:9px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+tr.void td{opacity:.45;text-decoration:line-through}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;border-radius:6px;padding:2px 6px;background:var(--bg)}
+.sec-h{display:flex;justify-content:space-between;align-items:center;margin:18px 0 8px}
+.sec-h h3{margin:0;font-size:13px;letter-spacing:.12em}
+/* stock */
+.sr{display:grid;grid-template-columns:1fr 70px 70px 110px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.sr input{width:100%;padding:7px;border:1px solid var(--line);border-radius:8px;text-align:center}
+.sr input.low{color:var(--red);font-weight:700}
+.sr input.chg{border-color:var(--gold);background:#fff8e6}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 18px;border-radius:12px;z-index:90;font-size:14px;opacity:0;transition:.2s;pointer-events:none;max-width:90vw}
+.toast.on{opacity:1}
+.ok{text-align:center;padding:10px 0}
+.ok .big{font-size:46px}
+@media(max-width:860px){
+  .sell{grid-template-columns:1fr}
+  .cart{position:fixed;inset:56px 0 0 0;z-index:30;border-radius:0;overflow:auto;display:none}
+  .cart.open{display:block}
+  .cartbar{display:flex;position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:25;background:var(--ink);color:#fff;border-radius:14px;padding:14px 16px;justify-content:space-between;font-weight:600;box-shadow:0 6px 20px #0004}
+  .wrap.pb{padding-bottom:90px}
+  .sr{grid-template-columns:1fr 60px 60px 92px}
+  .toast{bottom:96px}
+  .who span{display:none}
+  .top .lg{font-size:12px;letter-spacing:.1em;margin-right:2px}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<script>
+"use strict";
+/* ===== util ===== */
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt=n=>(Math.round(n||0)).toString().replace(/\B(?=(\d{3})+(?!\d))/g,".")+" MT";
+const COR={ouro:"Dourado",prata:"Prateado","-":""};
+const CORS={ouro:"D",prata:"P"};
+const PAYS=["Cash","POS","M-Pesa","e-Mola","BIM","BCI","Transferência","Outro"];
+const EXP_TYPES=["Portador diário","Internet (dados)","Yango","Outros"];
+function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("on"),2600);}
+const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+function dmy(day){const [y,m,d]=day.split("-");return `${d}/${m}/${y}`;}
+function hm(ts){return new Date(ts).toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit",timeZone:"Africa/Maputo"});}
+function waNum(p){let d=String(p||"").replace(/\D/g,""); if(d.length===9&&/^8/.test(d)) d="258"+d; return d;}
+
+/* Promoção: mesmas fases do site (público) */
+function promoPct(){
+  const s=S.settings||{}; if(s.promo_pct!=null&&s.promo_pct!=="") return +s.promo_pct;
+  const now=Date.now(), T1=Date.parse("2026-11-23T00:00:00+02:00"), T2=Date.parse("2026-12-01T00:00:00+02:00");
+  return now<T1?30:(now<T2?15:0);
+}
+function vipPct(){ const now=Date.now(), T1=Date.parse("2026-11-23T00:00:00+02:00"), T2=Date.parse("2026-12-01T00:00:00+02:00"); return now<T1?50:(now<T2?25:0); }
+const NOPROMO=new Set(["Conjuntos"]);
+
+/* ===== estado ===== */
+const S={token:LS.get("posTok",null),user:null,products:[],stock:{},users:[],settings:{},today:"",
+  tab:"vender",cat:"Todos",q:"",cart:LS.get("posCart",[]),vip:false,day:null,fecho:null};
+function stk(id,cor,size){const r=S.stock[`${id}|${cor}|${size}`];return r==null?null:r;}
+function stkTotal(id){let n=0,any=false,full=true;for(const k in S.stock){if(k.startsWith(id+"|")){any=true;const v=S.stock[k];if(v==null)full=false;else n+=v;}}return any&&full?n:null;}
+
+async function api(path,opt={}){
+  const r=await fetch("/api"+path,{method:opt.method||"GET",headers:{"content-type":"application/json",...(S.token?{authorization:"Bearer "+S.token}:{})},body:opt.body?JSON.stringify(opt.body):undefined});
+  let d={}; try{d=await r.json()}catch(e){}
+  if(r.status===401&&path!=="/login"){S.token=null;LS.set("posTok",null);render();throw new Error(d.error||"Sessão expirada");}
+  if(!r.ok) throw new Error(d.error||("Erro "+r.status));
+  return d;
+}
+async function boot(){
+  const d=await api("/boot"); S.user=d.user; S.users=d.users; S.settings=d.settings; S.today=d.today; S.day=S.day||d.today;
+  S.stock={}; d.stock.forEach(r=>S.stock[`${r.product_id}|${r.cor}|${r.size}`]=r.qty);
+  if(!S.products.length) S.products=await (await fetch("products.json",{cache:"no-cache"})).json();
+  const pp=S.settings.prices?JSON.parse(S.settings.prices):{}; S.products.forEach(p=>{ if(pp[p.id]!=null) p.price=+pp[p.id]; });
+}
+
+/* ===== render ===== */
+function render(){
+  const app=$("#app");
+  if(!S.token){ return renderLogin(app); }
+  if(!S.user){ app.innerHTML=`<div class="login"><div class="lbox"><p>A carregar…</p></div></div>`; boot().then(render).catch(e=>{toast(e.message)}); return; }
+  const admin=S.user.role==="admin";
+  const tabs=[["vender","Vender"],["fecho","Fecho"],["stock","Stock"]].concat(admin?[["relatorio","Relatório"],["equipa","Equipa"]]:[]);
+  app.innerHTML=`<div class="top"><span class="lg">MTA POS</span><div class="nav">${tabs.map(([k,l])=>`<button data-tab="${k}" class="${S.tab===k?"on":""}">${l}</button>`).join("")}</div>
+    <div class="who"><span>${esc(S.user.name)}</span><button id="out">Sair</button></div></div><div id="view"></div>`;
+  $$("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;render();});
+  $("#out").onclick=async()=>{try{await api("/logout",{method:"POST"})}catch(e){} S.token=null;S.user=null;LS.set("posTok",null);render();};
+  ({vender:vVender,fecho:vFecho,stock:vStock,relatorio:vRel,equipa:vEquipa})[S.tab]($("#view"));
+}
+
+/* ----- login ----- */
+async function renderLogin(app){
+  let setup=false; try{ setup=(await api("/status")).setup; }catch(e){ app.innerHTML=`<div class="login"><div class="lbox"><h1>MTA POS</h1><p class="lerr">${esc(e.message)}</p></div></div>`; return; }
+  if(setup){
+    app.innerHTML=`<div class="login"><div class="lbox"><h1>MTA POS</h1><p>Primeira configuração: cria a conta de administrador.</p>
+      <input id="sn" placeholder="O teu nome" autocomplete="off"><input id="sp" placeholder="PIN (4–8 dígitos)" inputmode="numeric" type="password" autocomplete="off">
+      <button class="btn" id="sb" style="width:100%">Criar conta</button><div class="lerr" id="le"></div></div></div>`;
+    $("#sb").onclick=async()=>{ try{ await api("/setup",{method:"POST",body:{name:$("#sn").value,pin:$("#sp").value}}); toast("Conta criada. Entra com o teu PIN."); render(); }catch(e){ $("#le").textContent=e.message; } };
+    return;
+  }
+  let pin="";
+  app.innerHTML=`<div class="login"><div class="lbox"><h1>MTA POS</h1><p>Introduz o teu PIN</p><div class="dots" id="dots"></div>
+    <div class="pad">${[1,2,3,4,5,6,7,8,9,"⌫",0,"OK"].map(k=>`<button data-k="${k}">${k}</button>`).join("")}</div><div class="lerr" id="le"></div></div></div>`;
+  const draw=()=>{$("#dots").innerHTML=Array.from({length:Math.max(4,pin.length)},(_,i)=>`<i class="${i<pin.length?"f":""}"></i>`).join("");};
+  const go=async()=>{ if(pin.length<4) return; try{ const d=await api("/login",{method:"POST",body:{pin}}); S.token=d.token; LS.set("posTok",d.token); S.user=null; S.tab="vender"; render(); }catch(e){ $("#le").textContent=e.message; pin=""; draw(); } };
+  $$("[data-k]").forEach(b=>b.onclick=()=>{const k=b.dataset.k; if(k==="⌫") pin=pin.slice(0,-1); else if(k==="OK") return go(); else if(pin.length<8) pin+=k; $("#le").textContent=""; draw(); if(pin.length===8) go();});
+  document.onkeydown=e=>{ if(S.token) return; if(/^\d$/.test(e.key)&&pin.length<8){pin+=e.key;draw();} else if(e.key==="Backspace"){pin=pin.slice(0,-1);draw();} else if(e.key==="Enter") go(); };
+  draw();
+}
+
+/* ----- vender ----- */
+function listPrice(p){ return p.price||0; }
+function salePrice(p){ const lp=listPrice(p); if(NOPROMO.has(p.cat)) return lp; const pct=S.vip?vipPct():promoPct(); return Math.round(lp*(100-pct)/100); }
+function saveCart(){ LS.set("posCart",S.cart); }
+function vVender(v){
+  const cats=["Todos",...new Set(S.products.map(p=>p.cat))];
+  v.innerHTML=`<div class="wrap pb"><div class="sell"><div>
+    <div class="srch"><input id="q" placeholder="Pesquisar artigo… (ex: grego, rope 3, cuban)" value="${esc(S.q)}" autocomplete="off">
+    <div class="cats">${cats.map(c=>`<button class="chip ${S.cat===c?"on":""}" data-c="${esc(c)}">${esc(c)}</button>`).join("")}</div></div>
+    <div class="grid" id="grid"></div></div>
+    <div class="card cart" id="cart"></div></div></div>
+    <button class="cartbar" id="cbar"></button>`;
+  $("#q").oninput=e=>{S.q=e.target.value;drawGrid();};
+  $$("[data-c]").forEach(b=>b.onclick=()=>{S.cat=b.dataset.c;$$("[data-c]").forEach(x=>x.classList.toggle("on",x===b));drawGrid();});
+  $("#cbar").onclick=()=>$("#cart").classList.add("open");
+  drawGrid(); drawCart();
+}
+const norm=s=>String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/([a-z])(\d)/g,"$1 $2");
+function drawGrid(){
+  const q=norm(S.q).trim().split(/\s+/).filter(Boolean);
+  const list=S.products.filter(p=>(S.cat==="Todos"||p.cat===S.cat)&&q.every(w=>norm(p.name+" "+p.cat+" "+p.tipo+" "+p.id).includes(w)));
+  $("#grid").innerHTML=list.map(p=>{const t=stkTotal(p.id);
+    return `<button class="pc" data-p="${p.id}">${p.img?`<img src="/img/t/${p.id}.jpg" alt="" loading="lazy">`:`<div class="ni">sem foto</div>`}<b>${esc(p.name)}</b><span>${p.price?fmt(p.price):"preço a definir"}</span>${t===0?`<span class="st">Esgotado</span>`:t!=null&&t<=5?`<span class="st">Restam ${t}</span>`:""}</button>`;}).join("")||`<p class="empty">Nenhum artigo encontrado.</p>`;
+  $$("#grid [data-p]").forEach(b=>b.onclick=()=>pick(b.dataset.p));
+}
+function pick(id){
+  const p=S.products.find(x=>x.id===id);
+  let cor=p.mats?null:"-", size=p.sizes.length?null:"-", qty=1, price=salePrice(p);
+  const m=document.createElement("div"); m.className="mod";
+  const draw=()=>{
+    const stLine=(c,s)=>{const n=stk(p.id,c,s);return n==null?"":`<small>${n} em stock</small>`;};
+    m.innerHTML=`<div class="mbox"><div class="row" style="justify-content:space-between"><div><div class="muted small">${esc(p.cat)}</div><h2>${esc(p.name)}</h2></div><button class="qbtn" data-x>✕</button></div>
+      ${p.mats?`<label class="l">Cor</label><div class="opts">${["ouro","prata"].map(c=>{const n=size&&size!=="-"?stk(p.id,c,size):(p.sizes.length?null:stk(p.id,c,"-"));return `<button class="opt ${cor===c?"on":""} ${n===0?"zero":""}" data-cor="${c}">${COR[c]}${n==null?"":`<small>${n} em stock</small>`}</button>`;}).join("")}</div>`:""}
+      ${p.sizes.length?`<label class="l">Tamanho</label><div class="opts">${p.sizes.map(s=>{const n=cor?stk(p.id,cor,s):null;return `<button class="opt ${size===s?"on":""} ${n===0?"zero":""}" data-sz="${esc(s)}">${esc(s)}${n==null?"":`<small>${n}</small>`}</button>`;}).join("")}</div>`:""}
+      <div class="row" style="gap:14px;margin-top:4px"><div style="flex:1"><label class="l">Quantidade</label><div class="row"><button class="qbtn" data-q="-1">−</button><b style="min-width:26px;text-align:center">${qty}</b><button class="qbtn" data-q="1">+</button></div></div>
+      <div style="flex:1.4"><label class="l">Preço unitário</label><input class="f" id="pp" inputmode="numeric" value="${price||""}" placeholder="MT"></div></div>
+      <p class="disc">${p.price?`Preço de tabela ${fmt(p.price)}${!NOPROMO.has(p.cat)&&(S.vip?vipPct():promoPct())?` · desconto ${S.vip?"VIP ":""}${S.vip?vipPct():promoPct()}% aplicado`:""}`:"Este artigo ainda não tem preço: escreve o valor."}</p>
+      ${(()=>{const n=(cor&&size)?stk(p.id,cor,size):null;return n===0?`<p class="small" style="color:var(--red);font-weight:600">Atenção: o sistema mostra 0 em stock para esta variante. Confirma antes de vender.</p>`:"";})()}
+      <button class="btn" id="add" style="width:100%;margin-top:6px" ${(!cor||!size)?"disabled":""}>${!cor?"Escolhe a cor":!size?"Escolhe o tamanho":"Adicionar ao carrinho"}</button></div>`;
+    $("[data-x]",m).onclick=()=>m.remove();
+    $$("[data-cor]",m).forEach(b=>b.onclick=()=>{cor=b.dataset.cor;draw();});
+    $$("[data-sz]",m).forEach(b=>b.onclick=()=>{size=b.dataset.sz;draw();});
+    $$("[data-q]",m).forEach(b=>b.onclick=()=>{qty=Math.max(1,qty+ +b.dataset.q);draw();});
+    $("#pp",m).oninput=e=>{price=+e.target.value.replace(/\D/g,"")||0;};
+    $("#add",m).onclick=()=>{ if(!(price>0)){toast("Escreve o preço");return;}
+      const ex=S.cart.find(i=>i.product_id===p.id&&i.cor===cor&&i.size===size&&i.unit_price===price);
+      if(ex) ex.qty+=qty; else S.cart.push({product_id:p.id,name:p.name,tipo:p.tipo,cor,size,qty,unit_price:price,list_price:p.price||null});
+      saveCart(); m.remove(); drawCart(); toast("Adicionado: "+p.name); };
+  };
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  draw(); document.body.appendChild(m);
+}
+function itemLabel(i){ return [i.name, i.cor&&i.cor!=="-"?COR[i.cor]:"", i.size&&i.size!=="-"?"T: "+i.size:""].filter(Boolean).join(" · "); }
+function drawCart(){
+  const c=$("#cart"); if(!c) return;
+  const sub=S.cart.reduce((a,i)=>a+i.unit_price*i.qty,0), n=S.cart.reduce((a,i)=>a+i.qty,0);
+  const cb=$("#cbar"); cb.innerHTML=`<span>Carrinho · ${n} ${n===1?"artigo":"artigos"}</span><span>${fmt(sub)}</span>`; cb.classList.toggle("hide",!n);
+  c.innerHTML=`<div class="row" style="justify-content:space-between"><h3 class="mont">CARRINHO</h3><button class="qbtn hide-d" id="cx" style="${innerWidth>860?"display:none":""}">✕</button></div>
+    <label class="row small" style="gap:8px;margin-bottom:6px"><input type="checkbox" id="vip" ${S.vip?"checked":""}> Cliente VIP (${vipPct()}% em vez de ${promoPct()}%)</label>
+    ${S.cart.length?S.cart.map((i,k)=>`<div class="ci"><div><b>${esc(i.name)}</b><div class="v">${esc([COR[i.cor]||"",i.size!=="-"?"Tamanho "+i.size:""].filter(Boolean).join(" · "))}${i.list_price&&i.unit_price<i.list_price?` · <s>${fmt(i.list_price)}</s>`:""}</div></div><b class="fmt">${fmt(i.unit_price*i.qty)}</b>
+      <div class="ctl"><button class="qbtn" data-m="${k}">−</button><b>${i.qty}</b><button class="qbtn" data-p="${k}">+</button><span class="small muted" style="margin-left:auto">un.</span><input inputmode="numeric" data-pr="${k}" value="${i.unit_price}"><button class="qbtn" data-r="${k}" title="Remover">🗑</button></div></div>`).join("")
+      :`<p class="empty">Toca num artigo para adicionar.</p>`}
+    <div class="tot"><span>Total</span><span>${fmt(sub)}</span></div>
+    <button class="btn grn" id="pay" style="width:100%" ${S.cart.length?"":"disabled"}>Finalizar venda</button>
+    ${S.cart.length?`<button class="btn sec" id="clr" style="width:100%;margin-top:8px">Limpar carrinho</button>`:""}`;
+  const cx=$("#cx"); if(cx) cx.onclick=()=>c.classList.remove("open");
+  $("#vip").onchange=e=>{S.vip=e.target.checked; S.cart.forEach(i=>{const p=S.products.find(x=>x.id===i.product_id); if(p&&p.price) i.unit_price=salePrice(p);}); saveCart(); drawCart(); };
+  $$("[data-m]",c).forEach(b=>b.onclick=()=>{const i=S.cart[+b.dataset.m]; i.qty--; if(i.qty<1) S.cart.splice(+b.dataset.m,1); saveCart(); drawCart();});
+  $$("[data-p]",c).forEach(b=>b.onclick=()=>{S.cart[+b.dataset.p].qty++; saveCart(); drawCart();});
+  $$("[data-r]",c).forEach(b=>b.onclick=()=>{S.cart.splice(+b.dataset.r,1); saveCart(); drawCart();});
+  $$("[data-pr]",c).forEach(inp=>inp.onchange=()=>{S.cart[+inp.dataset.pr].unit_price=+inp.value.replace(/\D/g,"")||0; saveCart(); drawCart();});
+  const clr=$("#clr"); if(clr) clr.onclick=()=>{ if(confirmBox("Limpar o carrinho?")){S.cart=[];saveCart();drawCart();} };
+  $("#pay").onclick=checkout;
+}
+function confirmBox(t){ return window.confirm(t); }
+function checkout(){
+  const admin=S.user.role==="admin";
+  const sub=S.cart.reduce((a,i)=>a+i.unit_price*i.qty,0);
+  const f={channel:"Loja",payment:"",delivery:0,customer:"",phone:"",notes:"",user_id:S.user.id};
+  const m=document.createElement("div"); m.className="mod";
+  const draw=()=>{
+    m.innerHTML=`<div class="mbox"><div class="row" style="justify-content:space-between"><h2>Finalizar venda</h2><button class="qbtn" data-x>✕</button></div>
+      <label class="l">Local da venda</label><div class="opts">${["Loja","WhatsApp","Instagram"].map(c=>`<button class="opt ${f.channel===c?"on":""}" data-ch="${c}">${c}</button>`).join("")}</div>
+      <label class="l">Meio de pagamento</label><div class="pay">${PAYS.map(c=>`<button class="opt ${f.payment===c?"on":""}" data-py="${c}">${c}</button>`).join("")}</div>
+      <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Transporte (MT)</label><input class="f" id="dl" inputmode="numeric" value="${f.delivery||""}" placeholder="0"></div>
+      ${admin?`<div style="flex:1"><label class="l">Vendido por</label><select class="f" id="us">${S.users.filter(u=>u.active).map(u=>`<option value="${u.id}" ${u.id===f.user_id?"selected":""}>${esc(u.name)}</option>`).join("")}</select></div>`:""}</div>
+      <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Nome do cliente</label><input class="f" id="cn" value="${esc(f.customer)}"></div><div style="flex:1"><label class="l">Telefone</label><input class="f" id="cp" inputmode="tel" value="${esc(f.phone)}" placeholder="84 000 0000"></div></div>
+      <label class="l">Observações</label><input class="f" id="nt" value="${esc(f.notes)}">
+      <div class="tot"><span>Total a pagar</span><span id="tp">${fmt(sub+(+f.delivery||0))}</span></div>
+      <button class="btn grn" id="go" style="width:100%" ${f.payment?"":"disabled"}>${f.payment?"Confirmar venda":"Escolhe o meio de pagamento"}</button></div>`;
+    const keep=()=>{f.delivery=+($("#dl",m).value.replace(/\D/g,""))||0;f.customer=$("#cn",m).value;f.phone=$("#cp",m).value;f.notes=$("#nt",m).value;const us=$("#us",m);if(us)f.user_id=+us.value;};
+    $("[data-x]",m).onclick=()=>m.remove();
+    $$("[data-ch]",m).forEach(b=>b.onclick=()=>{keep();f.channel=b.dataset.ch;draw();});
+    $$("[data-py]",m).forEach(b=>b.onclick=()=>{keep();f.payment=b.dataset.py;draw();});
+    $("#dl",m).oninput=()=>{keep();$("#tp",m).textContent=fmt(sub+(f.delivery||0));};
+    ["#cn","#cp","#nt"].forEach(x=>$(x,m).oninput=keep);
+    $("#go",m).onclick=async e=>{ keep(); e.target.disabled=true; e.target.textContent="A guardar…";
+      try{ const items=S.cart.map(i=>({...i})); const r=await api("/sales",{method:"POST",body:{...f,items}});
+        items.forEach(i=>{const k=`${i.product_id}|${i.cor}|${i.size}`; if(S.stock[k]!=null) S.stock[k]=Math.max(0,S.stock[k]-i.qty);});
+        S.cart=[]; S.vip=false; saveCart(); done(m,{...f,items,number:r.number,id:r.id,ts:Date.now(),sub});
+      }catch(err){ toast(err.message); e.target.disabled=false; e.target.textContent="Confirmar venda"; } };
+  };
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  draw(); document.body.appendChild(m);
+}
+function receipt(s){
+  const lines=s.items.map(i=>`• ${i.qty>1?i.qty+"x ":""}${itemLabel(i)} — ${fmt(i.unit_price*i.qty)}`);
+  return `*MTA Nation* — Recibo nº ${s.number} (${dmy(S.today)} ${hm(s.ts)})\n\n${lines.join("\n")}${s.delivery?`\n• Transporte — ${fmt(s.delivery)}`:""}\n\n*Total: ${fmt(s.sub+(s.delivery||0))}*\nPagamento: ${s.payment}\n\nObrigado pela preferência! 🖤\nGlória Mall, Quiosque Nº8 · mz.mtanation.com\nGarantia: guarda este recibo e o teu cartão de garantia.`;
+}
+function done(m,s){
+  const ph=waNum(s.phone);
+  m.innerHTML=`<div class="mbox ok"><div class="big">✅</div><h2>Venda nº ${s.number} registada</h2><p class="muted">${fmt(s.sub+(s.delivery||0))} · ${esc(s.payment)}</p>
+    <a class="btn grn" style="display:block;text-decoration:none;margin:14px 0 8px" target="_blank" href="https://wa.me/${ph}?text=${encodeURIComponent(receipt(s))}">${ph?"Enviar recibo por WhatsApp":"Partilhar recibo por WhatsApp"}</a>
+    <button class="btn sec" style="width:100%" id="nv">Nova venda</button></div>`;
+  $("#nv",m).onclick=()=>{m.remove(); render();};
+}
+
+/* ----- fecho ----- */
+async function vFecho(v){
+  const admin=S.user.role==="admin";
+  v.innerHTML=`<div class="wrap"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><h2 style="margin:0;font-size:18px">Fecho do dia</h2>
+    <div class="row"><input type="date" class="f" id="dd" value="${S.day}" max="${S.today}" style="width:auto"><button class="btn sec" id="sh">Partilhar</button></div></div><div id="fb"><p class="empty">A carregar…</p></div></div>`;
+  $("#dd").onchange=e=>{S.day=e.target.value;vFecho(v);};
+  let d; try{ d=await api("/sales?day="+S.day); }catch(e){ $("#fb").innerHTML=`<p class="empty">${esc(e.message)}</p>`; return; }
+  const ok=d.sales.filter(s=>!s.void);
+  const prod=ok.reduce((a,s)=>a+s.subtotal,0), del=ok.reduce((a,s)=>a+s.delivery,0), exp=d.expenses.reduce((a,e)=>a+e.amount,0);
+  const byPay={}; ok.forEach(s=>byPay[s.payment]=(byPay[s.payment]||0)+s.subtotal+s.delivery);
+  const bySeller={}; ok.forEach(s=>{const u=S.users.find(x=>x.id===s.user_id)||{name:s.seller,commission:0}; const b=bySeller[u.name]=bySeller[u.name]||{n:0,total:0,pct:u.commission||0}; b.n++; b.total+=s.subtotal;});
+  const cash=byPay["Cash"]||0;
+  const byCh={}; ok.forEach(s=>byCh[s.channel]=(byCh[s.channel]||0)+s.subtotal);
+  S.fecho={d,prod,del,exp,byPay,bySeller,cash,byCh};
+  $("#fb").innerHTML=`<div class="kpis" style="margin-top:12px">
+      <div class="kpi"><small>Vendas (produtos)</small><b>${fmt(prod)}</b><div class="small muted">${ok.length} vendas</div></div>
+      <div class="kpi"><small>Transporte</small><b>${fmt(del)}</b></div>
+      <div class="kpi"><small>Total geral</small><b>${fmt(prod+del)}</b></div>
+      <div class="kpi"><small>Despesas</small><b>${fmt(exp)}</b></div>
+      <div class="kpi"><small>Cash recebido</small><b>${fmt(cash)}</b><div class="small muted">Cash − despesas: ${fmt(cash-exp)}</div></div></div>
+    <div class="card"><div class="sec-h" style="margin-top:0"><h3 class="mont">COMISSÕES</h3><span class="small muted">sobre vendas sem transporte</span></div>
+      <table class="t"><tr><th>Vendedor</th><th>Vendas</th><th>Total</th><th>%</th><th>Comissão</th></tr>${Object.entries(bySeller).map(([n,b])=>`<tr><td>${esc(n)}</td><td>${b.n}</td><td class="fmt">${fmt(b.total)}</td><td>${b.pct}%</td><td class="fmt"><b>${fmt(b.total*b.pct/100)}</b></td></tr>`).join("")||`<tr><td colspan="5" class="muted">Sem vendas.</td></tr>`}</table>
+      <div class="sec-h"><h3 class="mont">POR MEIO DE PAGAMENTO</h3></div>
+      <div class="row" style="flex-wrap:wrap">${Object.entries(byPay).map(([k,val])=>`<span class="chip">${esc(k)}: ${fmt(val)}</span>`).join("")||`<span class="muted small">—</span>`}</div>
+      <div class="sec-h"><h3 class="mont">POR LOCAL</h3></div>
+      <div class="row" style="flex-wrap:wrap">${Object.entries(byCh).map(([k,val])=>`<span class="chip">${esc(k)}: ${fmt(val)}</span>`).join("")||`<span class="muted small">—</span>`}</div></div>
+    <div class="sec-h"><h3 class="mont">VENDAS</h3></div>
+    <div class="card" style="overflow-x:auto"><table class="t"><tr><th>Nº</th><th>Hora</th><th>Artigos</th><th>Valor</th><th>Transp.</th><th>Pagamento</th><th>Local</th><th>Vendedor</th><th>Cliente</th>${admin?"<th></th>":""}</tr>
+      ${d.sales.map((s,k)=>`<tr class="${s.void?"void":""}"><td>${k+1}</td><td>${hm(s.ts)}</td><td>${s.items.map(i=>esc((i.qty>1?i.qty+"x ":"")+itemLabel(i))).join("<br>")}</td><td class="fmt">${fmt(s.subtotal)}</td><td class="fmt">${s.delivery?fmt(s.delivery):"—"}</td><td><span class="tag">${esc(s.payment)}</span></td><td>${esc(s.channel)}</td><td>${esc(s.seller)}</td><td class="small">${esc(s.customer||"")}${s.phone?`<br>${esc(s.phone)}`:""}${s.notes?`<br><i>${esc(s.notes)}</i>`:""}${s.void?`<br><b>ANULADA</b> ${esc(s.void_reason||"")}`:""}</td>${admin?`<td>${s.void?"":`<button class="chip" data-void="${s.id}">Anular</button>`}</td>`:""}</tr>`).join("")||`<tr><td colspan="10" class="muted">Ainda não há vendas neste dia.</td></tr>`}</table></div>
+    <div class="sec-h"><h3 class="mont">DESPESAS</h3></div>
+    <div class="card"><table class="t">${d.expenses.map(e=>`<tr><td>${esc(e.type)}</td><td class="fmt">${fmt(e.amount)}</td><td class="small muted">${esc(e.notes||"")} · ${esc(e.by_name||"")}</td>${admin?`<td><button class="chip" data-del="${e.id}">Apagar</button></td>`:""}</tr>`).join("")||`<tr><td class="muted">Sem despesas.</td></tr>`}</table>
+      ${S.day===S.today||admin?`<div class="row" style="margin-top:10px;flex-wrap:wrap"><select class="f" id="et" style="flex:1;min-width:140px">${EXP_TYPES.map(t=>`<option>${t}</option>`).join("")}</select><input class="f" id="ea" inputmode="numeric" placeholder="Valor MT" style="flex:1;min-width:100px"><input class="f" id="en" placeholder="Nota (opcional)" style="flex:2;min-width:140px"><button class="btn" id="eb">Adicionar</button></div>`:""}</div>`;
+  $$("[data-void]").forEach(b=>b.onclick=async()=>{ const r=prompt("Motivo da anulação (o stock volta a entrar):"); if(r==null) return; try{ await api(`/sales/${b.dataset.void}/void`,{method:"POST",body:{reason:r}}); await boot(); toast("Venda anulada"); vFecho(v);}catch(e){toast(e.message);} });
+  $$("[data-del]").forEach(b=>b.onclick=async()=>{ if(!confirmBox("Apagar esta despesa?")) return; try{ await api(`/expenses/${b.dataset.del}`,{method:"DELETE"}); vFecho(v);}catch(e){toast(e.message);} });
+  const eb=$("#eb"); if(eb) eb.onclick=async()=>{ try{ await api("/expenses",{method:"POST",body:{day:S.day,type:$("#et").value,amount:+$("#ea").value.replace(/\D/g,""),notes:$("#en").value}}); toast("Despesa registada"); vFecho(v);}catch(e){toast(e.message);} };
+  $("#sh").onclick=()=>{ const F=S.fecho; const t=`*Fecho MTA Nation — ${dmy(S.day)}*\n\nVendas (produtos): ${fmt(F.prod)} (${ok.length} vendas)\nTransporte: ${fmt(F.del)}\nTotal geral: ${fmt(F.prod+F.del)}\nDespesas: ${fmt(F.exp)}\nCash recebido: ${fmt(F.cash)}\n\n*Pagamentos*\n${Object.entries(F.byPay).map(([k,val])=>`${k}: ${fmt(val)}`).join("\n")}\n\n*Comissões*\n${Object.entries(F.bySeller).filter(([n,b])=>b.pct).map(([n,b])=>`${n}: ${fmt(b.total*b.pct/100)}`).join("\n")||"—"}`;
+    window.open("https://wa.me/?text="+encodeURIComponent(t),"_blank"); };
+}
+
+/* ----- stock ----- */
+function stockRows(){
+  const rows=[]; S.products.forEach(p=>{ const cors=p.mats?["ouro","prata"]:["-"], sz=p.sizes.length?p.sizes:["-"]; cors.forEach(c=>sz.forEach(s=>rows.push({p,cor:c,size:s}))); }); return rows;
+}
+function vStock(v){
+  const admin=S.user.role==="admin";
+  const chg={};
+  v.innerHTML=`<div class="wrap"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><h2 style="margin:0;font-size:18px">Stock</h2>
+    ${admin?`<div class="row"><button class="btn sec" id="imp">Importar da Google Sheet</button><button class="btn" id="sv" disabled>Guardar alterações</button></div>`:""}</div>
+    <div class="srch" style="margin-top:10px"><input id="sq" placeholder="Filtrar (ex: grego, cuban 3, rope)"><div class="cats"><button class="chip on" data-f="all">Todos</button><button class="chip" data-f="low">Stock baixo (1–5)</button><button class="chip" data-f="zero">Esgotados</button><button class="chip" data-f="none">Sem contagem</button></div></div>
+    <div class="card"><div class="sr small muted" style="font-weight:700"><span>Artigo</span><span>Cor</span><span>Tam.</span><span style="text-align:center">Qtd</span></div><div id="sl"></div></div></div>`;
+  let f="all";
+  const draw=()=>{ const q=norm($("#sq").value).trim().split(/\s+/).filter(Boolean);
+    const rows=stockRows().filter(r=>{ const n=stk(r.p.id,r.cor,r.size); if(f==="low"&&!(n>0&&n<=5))return false; if(f==="zero"&&n!==0)return false; if(f==="none"&&n!=null)return false; return q.every(w=>norm(r.p.name+" "+r.p.cat+" "+r.p.id).includes(w)); }).slice(0,400);
+    $("#sl").innerHTML=rows.map(r=>{const k=`${r.p.id}|${r.cor}|${r.size}`; const n=k in chg?chg[k]:stk(r.p.id,r.cor,r.size);
+      return `<div class="sr"><span>${esc(r.p.name)}</span><span>${CORS[r.cor]||"—"}</span><span>${r.size==="-"?"—":esc(r.size)}</span>${admin?`<input data-k="${esc(k)}" inputmode="numeric" value="${n==null?"":n}" class="${n!=null&&n<=5?"low":""} ${k in chg?"chg":""}">`:`<b style="text-align:center" class="${n!=null&&n<=5?"":""}">${n==null?"—":n}</b>`}</div>`;}).join("")||`<p class="empty">Nada para mostrar.</p>`;
+    $$("#sl input").forEach(i=>i.oninput=()=>{chg[i.dataset.k]=i.value.replace(/\D/g,""); i.classList.add("chg"); $("#sv").disabled=false; $("#sv").textContent=`Guardar ${Object.keys(chg).length} alterações`;});
+  };
+  $("#sq").oninput=draw;
+  $$("[data-f]").forEach(b=>b.onclick=()=>{f=b.dataset.f;$$("[data-f]").forEach(x=>x.classList.toggle("on",x===b));draw();});
+  if(admin){
+    $("#sv").onclick=async()=>{ const rows=Object.entries(chg).map(([k,q])=>{const [product_id,cor,size]=k.split("|");return {product_id,cor,size,qty:q};});
+      try{ await api("/stock",{method:"PUT",body:{rows,reason:"ajuste manual"}}); rows.forEach(r=>S.stock[`${r.product_id}|${r.cor}|${r.size}`]=r.qty===""?null:+r.qty); Object.keys(chg).forEach(k=>delete chg[k]); toast(`${rows.length} linhas guardadas`); $("#sv").disabled=true; $("#sv").textContent="Guardar alterações"; draw(); }catch(e){toast(e.message);} };
+    $("#imp").onclick=async()=>{ const url=prompt("Link CSV publicado da Google Sheet:", S.settings.sheet_csv||"https://docs.google.com/spreadsheets/d/e/2PACX-1vQaeK8QR0Hl9GQqk4Vd10bf8aZYNkBZ90YGSDx2cYAnVocdkwpX-2nOUqkZRA7weuCrnT7449mTXZwP/pub?gid=0&single=true&output=csv"); if(!url) return;
+      if(!confirmBox("Isto substitui o stock do sistema pelos números da Google Sheet. Continuar?")) return;
+      try{ const r=await api("/stock/import",{method:"POST",body:{url}}); await boot(); toast(`Importadas ${r.n} linhas (${r.withQty} com quantidade)`); vStock(v);}catch(e){toast(e.message);} };
+  }
+  draw();
+}
+
+/* ----- relatório ----- */
+async function vRel(v){
+  const to=S.today, d=new Date(Date.parse(to)-6*864e5).toISOString().slice(0,10);
+  v.innerHTML=`<div class="wrap"><div class="row" style="flex-wrap:wrap;gap:10px"><h2 style="margin:0;font-size:18px;flex:1">Relatório</h2><input type="date" class="f" id="rf" value="${S.rf||d}" style="width:auto"><span>até</span><input type="date" class="f" id="rt" value="${S.rt||to}" style="width:auto"></div><div id="rb"><p class="empty">A carregar…</p></div></div>`;
+  const load=async()=>{ S.rf=$("#rf").value; S.rt=$("#rt").value; try{ const r=await api(`/report?from=${S.rf}&to=${S.rt}`);
+    const tot=r.byDay.reduce((a,x)=>a+x.total,0), n=r.byDay.reduce((a,x)=>a+x.n,0);
+    $("#rb").innerHTML=`<div class="kpis" style="margin-top:12px"><div class="kpi"><small>Vendas</small><b>${fmt(tot)}</b></div><div class="kpi"><small>Nº vendas</small><b>${n}</b></div><div class="kpi"><small>Ticket médio</small><b>${fmt(n?tot/n:0)}</b></div></div>
+      <div class="card"><div class="sec-h" style="margin-top:0"><h3 class="mont">POR DIA</h3></div><table class="t"><tr><th>Dia</th><th>Vendas</th><th>Total</th><th>Transporte</th></tr>${r.byDay.map(x=>`<tr><td>${dmy(x.day)}</td><td>${x.n}</td><td class="fmt">${fmt(x.total)}</td><td class="fmt">${fmt(x.delivery)}</td></tr>`).join("")||`<tr><td colspan="4" class="muted">Sem vendas.</td></tr>`}</table>
+      <div class="sec-h"><h3 class="mont">MAIS VENDIDOS</h3></div><table class="t"><tr><th>Artigo</th><th>Qtd</th><th>Total</th></tr>${r.top.map(x=>`<tr><td>${esc(x.name)}</td><td>${x.qty}</td><td class="fmt">${fmt(x.total)}</td></tr>`).join("")}</table>
+      <div class="sec-h"><h3 class="mont">POR VENDEDOR</h3></div><table class="t"><tr><th>Vendedor</th><th>Vendas</th><th>Total</th></tr>${r.bySeller.map(x=>`<tr><td>${esc(x.name)}</td><td>${x.n}</td><td class="fmt">${fmt(x.total)}</td></tr>`).join("")}</table></div>`;
+  }catch(e){ $("#rb").innerHTML=`<p class="empty">${esc(e.message)}</p>`; } };
+  $("#rf").onchange=load; $("#rt").onchange=load; load();
+}
+
+/* ----- equipa ----- */
+function vEquipa(v){
+  v.innerHTML=`<div class="wrap"><h2 style="margin:0 0 12px;font-size:18px">Equipa</h2>
+    <div class="card" style="overflow-x:auto"><table class="t"><tr><th>Nome</th><th>Função</th><th>Comissão</th><th>Estado</th><th></th></tr>
+    ${S.users.map(u=>`<tr><td><b>${esc(u.name)}</b></td><td>${u.role==="admin"?"Admin":"Vendedor"}</td><td>${u.commission}%</td><td>${u.active?"Ativo":"<span class='muted'>Inativo</span>"}</td><td><button class="chip" data-ed="${u.id}">Editar</button></td></tr>`).join("")}</table></div>
+    <div class="sec-h"><h3 class="mont">ADICIONAR PESSOA</h3></div>
+    <div class="card"><div class="row" style="flex-wrap:wrap;gap:10px"><input class="f" id="nn" placeholder="Nome" style="flex:2;min-width:140px"><input class="f" id="np" placeholder="PIN (4–8 dígitos)" inputmode="numeric" style="flex:1;min-width:120px"><input class="f" id="nc" placeholder="Comissão %" inputmode="decimal" value="3" style="flex:1;min-width:100px"><select class="f" id="nr" style="flex:1;min-width:120px"><option value="seller">Vendedor</option><option value="admin">Admin</option></select><button class="btn" id="nb">Adicionar</button></div>
+    <p class="small muted">Cada pessoa entra com o seu PIN. A venda fica registada em nome de quem está ligado. Só admins veem relatórios, anulam vendas e alteram stock.</p></div></div>`;
+  $("#nb").onclick=async()=>{ try{ await api("/users",{method:"POST",body:{name:$("#nn").value,pin:$("#np").value,commission:+$("#nc").value.replace(",","."),role:$("#nr").value}}); await boot(); toast("Pessoa adicionada"); vEquipa(v);}catch(e){toast(e.message);} };
+  $$("[data-ed]").forEach(b=>b.onclick=()=>{ const u=S.users.find(x=>x.id===+b.dataset.ed); const m=document.createElement("div"); m.className="mod";
+    m.innerHTML=`<div class="mbox"><div class="row" style="justify-content:space-between"><h2>${esc(u.name)}</h2><button class="qbtn" data-x>✕</button></div>
+      <label class="l">Nome</label><input class="f" id="un" value="${esc(u.name)}"><label class="l">Novo PIN (deixa vazio para manter)</label><input class="f" id="up" inputmode="numeric">
+      <label class="l">Comissão %</label><input class="f" id="uc" value="${u.commission}" inputmode="decimal"><label class="l">Função</label><select class="f" id="ur"><option value="seller" ${u.role==="seller"?"selected":""}>Vendedor</option><option value="admin" ${u.role==="admin"?"selected":""}>Admin</option></select>
+      <label class="l">Estado</label><select class="f" id="ua"><option value="1" ${u.active?"selected":""}>Ativo</option><option value="0" ${u.active?"":"selected"}>Inativo (não consegue entrar)</option></select>
+      <button class="btn" id="usv" style="width:100%;margin-top:14px">Guardar</button></div>`;
+    $("[data-x]",m).onclick=()=>m.remove(); m.onclick=e=>{if(e.target===m)m.remove();};
+    $("#usv",m).onclick=async()=>{ const body={name:$("#un",m).value,commission:+$("#uc",m).value.replace(",","."),role:$("#ur",m).value,active:+$("#ua",m).value}; if($("#up",m).value) body.pin=$("#up",m).value;
+      try{ await api(`/users/${u.id}`,{method:"PUT",body}); await boot(); m.remove(); toast("Guardado"); vEquipa(v);}catch(e){toast(e.message);} };
+    document.body.appendChild(m); });
+}
+
+render();
+</script>
+</body>
+</html>

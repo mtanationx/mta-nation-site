@@ -4,3 +4,6 @@
   Cache-Control: no-cache
 /vip/*
   Cache-Control: no-cache
+/pos/*
+  Cache-Control: no-cache
+  X-Robots-Tag: noindex

@@ -144,6 +144,8 @@ const SOURCES=["Anúncio Instagram/Facebook","Cliente habitual","Passou na loja"
 const CTYPES=["Mensagem a clientes (POS)","Lista de transmissão WhatsApp","Status WhatsApp"];
 const GCATS=["Renda / Glória Mall","Salários e comissões","Stock e fornecedores","Marketing e anúncios","Embalagens","Internet e telefone","Transporte","Outros"];
 const GPAY=["Cash","Transferência","M-Pesa","e-Mola","Cartão","Outro"];
+const LSTAT=["Por receber","Em trânsito","Chegou (por levantar)","Recebido"];
+const LBRAND=["MTA","Magnolia","Alekso","Loja","Pessoal"];
 const ROLES={seller:"Vendedor",manager:"Gerente",admin:"Admin"};
 const EXP_TYPES=["Portador diário","Internet (dados)","Yango","Outros"];
 function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("on"),2600);}
@@ -188,12 +190,12 @@ function render(){
   if(!S.user){ app.innerHTML=`<div class="login"><div class="lbox"><p>A carregar…</p></div></div>`; boot().then(render).catch(e=>{toast(e.message)}); return; }
   const admin=S.user.role==="admin";
   const mgr=admin||S.user.role==="manager";
-  const tabs=[["vender","Vender"],["fecho","Fecho"]].concat(mgr?[["caixa","Caixa"],["clientes","Clientes"],["campanhas","Marketing"]]:[],[["stock","Stock"]],mgr?[["gastos","Givings"]]:[],admin?[["relatorio","Relatório"],["equipa","Equipa"]]:[]);
+  const tabs=[["vender","Vender"],["fecho","Fecho"]].concat(mgr?[["caixa","Caixa"],["clientes","Clientes"],["campanhas","Marketing"]]:[],[["stock","Stock"]],mgr?[["logistica","Logística"],["gastos","Givings"]]:[],admin?[["relatorio","Relatório"],["equipa","Equipa"]]:[]);
   app.innerHTML=`<div class="top"><span class="lg">MTA POS</span><div class="nav">${tabs.map(([k,l])=>`<button data-tab="${k}" class="${S.tab===k?"on":""}">${l}</button>`).join("")}</div>
     <div class="who"><span>${esc(S.user.name)}</span><button id="out">Sair</button></div></div><div id="view"></div>`;
   $$("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;render();});
   $("#out").onclick=async()=>{try{await api("/logout",{method:"POST"})}catch(e){} S.token=null;S.user=null;LS.set("posTok",null);render();};
-  ({vender:vVender,fecho:vFecho,caixa:vCaixa,gastos:vGastos,clientes:vClientes,campanhas:vCampanhas,stock:vStock,relatorio:vRel,equipa:vEquipa})[S.tab]($("#view"));
+  ({vender:vVender,fecho:vFecho,caixa:vCaixa,logistica:vLog,gastos:vGastos,clientes:vClientes,campanhas:vCampanhas,stock:vStock,relatorio:vRel,equipa:vEquipa})[S.tab]($("#view"));
 }
 
 /* ----- login ----- */
@@ -422,6 +424,74 @@ async function vCaixa(v){
         if(w) w.location="https://wa.me/?text="+encodeURIComponent(t); m.remove(); toast("Recolha registada"); vCaixa(v);
       }catch(e){ if(w) w.close(); toast(e.message); } };
     document.body.appendChild(m); };
+}
+
+/* ----- logística ----- */
+const daysBetween=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);
+const usd=n=>{ const v=Math.round((+n||0)*100)/100, [i,d]=v.toFixed(2).split("."); return "$"+i.replace(/\B(?=(\d{3})+(?!\d))/g,".")+(d!=="00"?","+d:""); };
+async function vLog(v){
+  S.lf=S.lf||"curso"; S.lq=S.lq||""; S.lb=S.lb||"";
+  v.innerHTML=`<div class="wrap"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><h2 style="margin:0;font-size:18px">Logística</h2><button class="btn" id="lnew">+ Encomenda</button></div><div id="lb"><p class="empty">A carregar…</p></div></div>`;
+  $("#lnew").onclick=()=>logModal(null,()=>vLog(v));
+  let rows; try{ rows=(await api("/logistics")).rows; }catch(e){ $("#lb").innerHTML=`<p class="empty">${esc(e.message)}</p>`; return; }
+  const year=S.today.slice(0,4), open=rows.filter(r=>r.status!=="Recebido"), yr=rows.filter(r=>(r.order_day||"").startsWith(year));
+  const invY=yr.reduce((a,r)=>a+(r.mzn||0)+(r.pickup||0),0), usdY=yr.reduce((a,r)=>a+(r.usd||0),0);
+  const pk=rows.filter(r=>r.pickup&&r.mzn), pkPct=pk.length?pk.reduce((a,r)=>a+r.pickup,0)/pk.reduce((a,r)=>a+r.mzn,0)*100:0;
+  const avgDays=via=>{const x=rows.filter(r=>r.via===via&&r.status==="Recebido"&&r.order_day&&r.arrival_day).map(r=>daysBetween(r.order_day,r.arrival_day)).filter(d=>d>=0);return x.length?Math.round(x.reduce((a,b)=>a+b,0)/x.length):null;};
+  const air=avgDays("Aérea"), sea=avgDays("Marítima");
+  const draw=()=>{ const q=norm(S.lq).trim();
+    const list=rows.filter(r=>(S.lf==="todas"||(S.lf==="curso"?r.status!=="Recebido":r.status==="Recebido"))&&(!S.lb||r.brand===S.lb)&&(!q||norm(r.name+" "+(r.supplier||"")+" "+(r.tracking||"")).includes(q)));
+    const groups={}; list.forEach(r=>{const k=(r.order_day||"").slice(0,7)||"—";(groups[k]=groups[k]||[]).push(r);});
+    const stTag=st=>`<span class="tag" style="${st==="Recebido"?"background:#e6f4ea;color:var(--grn)":st==="Chegou (por levantar)"?"background:#fff3cd;color:#8a6d00":st==="Em trânsito"?"background:#e3eefc;color:#1a56b0":"background:#fde8e8;color:var(--red)"}">${esc(st||"")}</span>`;
+    $("#ll").innerHTML=Object.entries(groups).map(([k,rs])=>{ const [y,mo]=k.split("-"); const nm=k==="—"?"Sem data":new Date(Date.UTC(+y,+mo-1,15)).toLocaleDateString("pt-PT",{month:"long",year:"numeric"});
+      return `<div class="sec-h"><h3 class="mont">${esc(nm.toUpperCase())}</h3><span class="small muted">${fmt(rs.reduce((a,r)=>a+(r.mzn||0),0))} · ${usd(rs.reduce((a,r)=>a+(r.usd||0),0))}</span></div>
+      <div class="card" style="overflow-x:auto"><table class="t"><tr><th>Encomenda</th><th>Estado</th><th>Via</th><th>Encomendado</th><th>Chegada</th><th>MZN</th><th>USD</th><th>Levantamento</th></tr>
+      ${rs.map(r=>`<tr data-l="${r.id}" style="cursor:pointer"><td><b>${esc(r.name)}</b>${r.has_file?" 📎":""}${r.brand?` <span class="tag">${esc(r.brand)}</span>`:""}${r.supplier?`<div class="small muted">${esc(r.supplier)}</div>`:""}</td><td>${stTag(r.status)}</td><td class="small">${r.via==="Aérea"?"✈️ Aérea":r.via==="Marítima"?"🚢 Marítima":esc(r.via||"")}</td><td class="small">${r.order_day?dmy(r.order_day):"—"}</td><td class="small">${r.arrival_day?dmy(r.arrival_day)+(r.order_day&&r.status==="Recebido"?` <span class="muted">(${daysBetween(r.order_day,r.arrival_day)}d)</span>`:""):"—"}</td><td class="fmt">${r.mzn!=null?fmt(r.mzn):"—"}</td><td class="fmt">${r.usd!=null?usd(r.usd):"—"}</td><td class="fmt">${r.pickup!=null?fmt(r.pickup):"—"}</td></tr>`).join("")}</table></div>`; }).join("")||`<p class="empty">Nada para mostrar.</p>`;
+    $$("[data-l]").forEach(t=>t.onclick=()=>logModal(rows.find(r=>r.id===+t.dataset.l),()=>vLog(v)));
+  };
+  $("#lb").innerHTML=`<div class="kpis" style="margin-top:12px">
+      <div class="kpi" style="border-color:var(--ink)"><small>Em curso</small><b>${open.length} encomendas</b><div class="small muted">${fmt(open.reduce((a,r)=>a+(r.mzn||0),0))} · ${usd(open.reduce((a,r)=>a+(r.usd||0),0))}</div></div>
+      <div class="kpi"><small>Investido em ${year}</small><b>${fmt(invY)}</b><div class="small muted">${usd(usdY)} + levantamentos</div></div>
+      <div class="kpi"><small>Levantamento médio</small><b>${pkPct.toFixed(0)}%</b><div class="small muted">do valor da encomenda</div></div>
+      <div class="kpi"><small>Tempo de entrega</small><b>✈️ ${air??"—"}d · 🚢 ${sea??"—"}d</b><div class="small muted">média até receber</div></div></div>
+    <div class="srch"><input id="lq" placeholder="Pesquisar encomenda, fornecedor, tracking…" value="${esc(S.lq)}">
+      <div class="cats">${[["curso","Em curso"],["recebidas","Recebidas"],["todas","Todas"]].map(([k,l])=>`<button class="chip ${S.lf===k?"on":""}" data-lf="${k}">${l}</button>`).join("")}<span style="width:10px"></span>${["",...LBRAND].map(b=>`<button class="chip ${S.lb===b?"on":""}" data-lb="${b}">${b||"Todas as marcas"}</button>`).join("")}</div></div>
+    <div id="ll"></div>`;
+  $("#lq").oninput=e=>{S.lq=e.target.value;draw();};
+  $$("[data-lf]").forEach(b=>b.onclick=()=>{S.lf=b.dataset.lf;$$("[data-lf]").forEach(x=>x.classList.toggle("on",x===b));draw();});
+  $$("[data-lb]").forEach(b=>b.onclick=()=>{S.lb=b.dataset.lb;$$("[data-lb]").forEach(x=>x.classList.toggle("on",x===b));draw();});
+  draw();
+}
+function logModal(r,after){
+  const isNew=!r; r=r||{name:"",order_day:S.today,arrival_day:"",status:"Por receber",via:"Aérea",usd:"",mzn:"",pickup:"",supplier:"",brand:"MTA",tracking:"",notes:"",has_file:0};
+  const rate=+(S.settings.usd_rate||65); let file=null, st=r.status||"Por receber", via=r.via||"Aérea", brand=r.brand||"";
+  const m=document.createElement("div"); m.className="mod";
+  m.innerHTML=`<div class="mbox"><div class="row" style="justify-content:space-between"><h2>${isNew?"Nova encomenda":"Encomenda"}</h2><button class="qbtn" data-x>✕</button></div>
+    <label class="l">Nome</label><input class="f" id="l_name" value="${esc(r.name)}" placeholder="ex: 100 Cubans 8mm (Gold)">
+    <label class="l">Estado</label><div class="opts">${LSTAT.map(x=>`<button class="opt ${st===x?"on":""}" data-st="${esc(x)}">${esc(x)}</button>`).join("")}</div>
+    <label class="l">Via</label><div class="opts">${["Aérea","Marítima"].map(x=>`<button class="opt ${via===x?"on":""}" data-via="${x}">${x==="Aérea"?"✈️":"🚢"} ${x}</button>`).join("")}</div>
+    <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Data da encomenda</label><input class="f" type="date" id="l_order_day" value="${esc(r.order_day||"")}"></div><div style="flex:1"><label class="l">Data de chegada</label><input class="f" type="date" id="l_arrival_day" value="${esc(r.arrival_day||"")}"></div></div>
+    <div class="row" style="gap:10px"><div style="flex:1"><label class="l">USD</label><input class="f" id="l_usd" inputmode="decimal" value="${r.usd??""}"></div><div style="flex:1"><label class="l">MZN</label><input class="f" id="l_mzn" inputmode="numeric" value="${r.mzn??""}"></div><div style="flex:1"><label class="l">Levantamento (MZN)</label><input class="f" id="l_pickup" inputmode="numeric" value="${r.pickup??""}"></div></div>
+    <p class="small muted" id="lhint">Se escreveres só o USD, o MZN é calculado a ${rate} MT/USD.</p>
+    <label class="l">Marca</label><div class="opts">${LBRAND.map(x=>`<button class="opt ${brand===x?"on":""}" data-br="${x}">${x}</button>`).join("")}</div>
+    <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Fornecedor</label><input class="f" id="l_supplier" value="${esc(r.supplier||"")}"></div><div style="flex:1"><label class="l">Tracking / agente</label><input class="f" id="l_tracking" value="${esc(r.tracking||"")}"></div></div>
+    <label class="l">Notas</label><input class="f" id="l_notes" value="${esc(r.notes||"")}">
+    <label class="l">Anexo (fatura, foto da encomenda)</label><div class="row" style="flex-wrap:wrap"><label class="btn sec" style="cursor:pointer">📷 ${r.has_file?"Trocar foto":"Tirar / escolher foto"}<input type="file" id="l_file" accept="image/*" style="display:none"></label>${r.has_file?`<button class="btn sec" id="lview">Ver anexo</button>`:""}<span class="small muted" id="lfs"></span></div><div id="limg"></div>
+    ${!isNew&&r.status!=="Recebido"?`<button class="btn grn" id="lrcv" style="width:100%;margin-top:14px">✓ Marcar como recebido hoje</button>`:""}
+    <button class="btn" id="lsv" style="width:100%;margin-top:8px">Guardar</button>${isNew?"":`<button class="btn sec" id="ldel" style="width:100%;margin-top:8px;color:var(--red)">Apagar encomenda</button>`}</div>`;
+  const pick=(attr,set)=>$$(`[data-${attr}]`,m).forEach(b=>b.onclick=()=>{set(b.dataset[attr==="st"?"st":attr==="via"?"via":"br"]);$$(`[data-${attr}]`,m).forEach(x=>x.classList.toggle("on",x===b));});
+  pick("st",x=>st=x); pick("via",x=>via=x); pick("br",x=>brand=brand===x?"":x);
+  $("#l_usd",m).oninput=()=>{ const u=+$("#l_usd",m).value.replace(",","."); if(u&&!$("#l_mzn",m).dataset.touched) $("#l_mzn",m).value=Math.round(u*rate); };
+  $("#l_mzn",m).oninput=()=>{$("#l_mzn",m).dataset.touched=1;};
+  $("#l_file",m).onchange=async e=>{ const fl=e.target.files[0]; if(!fl) return; $("#lfs",m).textContent="A preparar…"; try{ file=await shrinkImage(fl); $("#lfs",m).textContent="Foto pronta ✓"; $("#limg",m).innerHTML=`<img src="${file}" style="max-width:100%;border-radius:10px;margin-top:10px">`; }catch(err){ $("#lfs",m).textContent=err.message; } };
+  const lv=$("#lview",m); if(lv) lv.onclick=async()=>{ try{ const x=await api(`/logistics/${r.id}/file`); $("#limg",m).innerHTML=`<img src="${x.data}" style="max-width:100%;border-radius:10px;margin-top:10px">`; }catch(e){toast(e.message);} };
+  const body=()=>{ const b={name:$("#l_name",m).value.trim(),status:st,via,brand,order_day:$("#l_order_day",m).value,arrival_day:$("#l_arrival_day",m).value,usd:$("#l_usd",m).value.trim(),mzn:$("#l_mzn",m).value.replace(/\D/g,""),pickup:$("#l_pickup",m).value.replace(/\D/g,""),supplier:$("#l_supplier",m).value.trim(),tracking:$("#l_tracking",m).value.trim(),notes:$("#l_notes",m).value.trim()}; if(file) b.file=file; return b; };
+  const save=async b=>{ try{ if(isNew) await api("/logistics",{method:"POST",body:b}); else await api("/logistics/"+r.id,{method:"PUT",body:b}); m.remove(); toast("Encomenda guardada"); after(); }catch(e){toast(e.message);} };
+  $("#lsv",m).onclick=()=>save(body());
+  const rc=$("#lrcv",m); if(rc) rc.onclick=()=>{ const b=body(); b.status="Recebido"; if(!b.arrival_day) b.arrival_day=S.today; if(!b.pickup){ const p=prompt("Quanto pagaste de levantamento (MZN)? Deixa vazio se ainda não sabes."); if(p) b.pickup=p.replace(/\D/g,""); } save(b); };
+  const ld=$("#ldel",m); if(ld) ld.onclick=async()=>{ if(!confirmBox("Apagar esta encomenda?")) return; try{ await api("/logistics/"+r.id,{method:"DELETE"}); m.remove(); toast("Encomenda apagada"); after(); }catch(e){toast(e.message);} };
+  $("[data-x]",m).onclick=()=>m.remove(); m.onclick=e=>{if(e.target===m)m.remove();};
+  document.body.appendChild(m);
 }
 
 /* ----- gastos mensais ----- */

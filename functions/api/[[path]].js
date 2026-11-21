@@ -1,3 +1,4 @@
+import LOG_SEED from "../_lib/seed-logistics.js";
 // MTA Nation POS — API (Cloudflare Pages Functions + D1, binding "DB")
 // Rotas em /api/*. Ver docs/POS.md.
 
@@ -19,6 +20,8 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS giving(id INTEGER PRIMARY KEY AUTOINCREMENT, day TEXT NOT NULL, description TEXT, category TEXT, amount INTEGER NOT NULL, method TEXT, paid_by TEXT, notes TEXT, recurring INTEGER NOT NULL DEFAULT 0, has_receipt INTEGER NOT NULL DEFAULT 0, user_id INTEGER, ts INTEGER)`,
   `CREATE INDEX IF NOT EXISTS giving_day ON giving(day)`,
   `CREATE TABLE IF NOT EXISTS receipts(giving_id INTEGER PRIMARY KEY, data TEXT NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS logistics(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, order_day TEXT, arrival_day TEXT, status TEXT, via TEXT, usd REAL, mzn INTEGER, pickup INTEGER, supplier TEXT, brand TEXT, tracking TEXT, notes TEXT, has_file INTEGER NOT NULL DEFAULT 0, user_id INTEGER, ts INTEGER)`,
+  `CREATE TABLE IF NOT EXISTS logistics_files(log_id INTEGER PRIMARY KEY, data TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS cash_moves(id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, day TEXT, type TEXT NOT NULL, amount INTEGER NOT NULL, counted INTEGER, expected INTEGER, user_id INTEGER, notes TEXT)`,
 ];
 let ready = false;
@@ -503,6 +506,56 @@ export async function onRequest(ctx) {
     if (!mgr) return err("Só a gerência", 403);
     const r = await db.prepare(`SELECT data FROM receipts WHERE giving_id=?`).bind(+grM[1]).first();
     if (!r) return err("Sem recibo", 404);
+    return json({ data: r.data });
+  }
+
+  // Logística (encomendas da China)
+  if (path.startsWith("/logistics") && !mgr) return err("Só a gerência", 403);
+  if (path === "/logistics" && m === "GET") {
+    const seeded = await db.prepare(`SELECT v FROM settings WHERE k='logistics_seeded'`).first();
+    if (!seeded) {
+      const n = await db.prepare(`SELECT COUNT(*) n FROM logistics`).first();
+      if (!n.n) {
+        const st = LOG_SEED.map(r => db.prepare(`INSERT INTO logistics(name,order_day,arrival_day,status,via,usd,mzn,pickup,brand,ts) VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(r.name, r.order_day, r.arrival_day || "", r.status, r.via, r.usd, r.mzn, r.pickup, r.brand || "", Date.now()));
+        for (let i = 0; i < st.length; i += 50) await db.batch(st.slice(i, i + 50));
+      }
+      await db.prepare(`INSERT INTO settings(k,v) VALUES('logistics_seeded','1') ON CONFLICT(k) DO NOTHING`).run();
+    }
+    const rows = (await db.prepare(`SELECT id,name,order_day,arrival_day,status,via,usd,mzn,pickup,supplier,brand,tracking,notes,has_file FROM logistics ORDER BY order_day DESC, id DESC`).all()).results;
+    return json({ rows });
+  }
+  const LF = ["name", "order_day", "arrival_day", "status", "via", "supplier", "brand", "tracking", "notes"];
+  const numOrNull = v => v === "" || v == null ? null : +String(v).replace(",", ".");
+  async function saveLogFile(id, data) {
+    if (!data) return;
+    if (!/^data:image\/(jpeg|png|webp);base64,/.test(data) || data.length > 1500000) throw new Error("Foto inválida ou demasiado grande");
+    await db.prepare(`INSERT INTO logistics_files(log_id,data) VALUES(?,?) ON CONFLICT(log_id) DO UPDATE SET data=excluded.data`).bind(id, data).run();
+    await db.prepare(`UPDATE logistics SET has_file=1 WHERE id=?`).bind(id).run();
+  }
+  if (path === "/logistics" && m === "POST") {
+    if (!String(body.name || "").trim()) return err("Escreve o nome da encomenda");
+    const r = await db.prepare(`INSERT INTO logistics(${LF.join(",")},usd,mzn,pickup,user_id,ts) VALUES(${LF.map(() => "?").join(",")},?,?,?,?,?)`).bind(...LF.map(k => String(body[k] || "").slice(0, 300)), numOrNull(body.usd), body.mzn === "" || body.mzn == null ? null : Math.round(+body.mzn), body.pickup === "" || body.pickup == null ? null : Math.round(+body.pickup), user.id, Date.now()).run();
+    try { await saveLogFile(r.meta.last_row_id, body.file); } catch (e) { return err(e.message); }
+    return json({ ok: true, id: r.meta.last_row_id });
+  }
+  const lM = path.match(/^\/logistics\/(\d+)$/);
+  if (lM && m === "PUT") {
+    const sets = [], b = [];
+    LF.forEach(k => { if (body[k] != null) { sets.push(`${k}=?`); b.push(String(body[k]).slice(0, 300)); } });
+    if (body.usd !== undefined) { sets.push("usd=?"); b.push(numOrNull(body.usd)); }
+    ["mzn", "pickup"].forEach(k => { if (body[k] !== undefined) { sets.push(`${k}=?`); b.push(body[k] === "" || body[k] == null ? null : Math.round(+body[k])); } });
+    if (sets.length) await db.prepare(`UPDATE logistics SET ${sets.join(",")} WHERE id=?`).bind(...b, +lM[1]).run();
+    try { await saveLogFile(+lM[1], body.file); } catch (e) { return err(e.message); }
+    return json({ ok: true });
+  }
+  if (lM && m === "DELETE") {
+    await db.batch([db.prepare(`DELETE FROM logistics_files WHERE log_id=?`).bind(+lM[1]), db.prepare(`DELETE FROM logistics WHERE id=?`).bind(+lM[1])]);
+    return json({ ok: true });
+  }
+  const lfM = path.match(/^\/logistics\/(\d+)\/file$/);
+  if (lfM && m === "GET") {
+    const r = await db.prepare(`SELECT data FROM logistics_files WHERE log_id=?`).bind(+lfM[1]).first();
+    if (!r) return err("Sem anexo", 404);
     return json({ data: r.data });
   }
 

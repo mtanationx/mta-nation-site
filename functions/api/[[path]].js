@@ -1,4 +1,5 @@
 import LOG_SEED from "../_lib/seed-logistics.js";
+import GIVING_SEED from "../_lib/seed-giving.js";
 // MTA Nation POS — API (Cloudflare Pages Functions + D1, binding "DB")
 // Rotas em /api/*. Ver docs/POS.md.
 
@@ -28,7 +29,7 @@ let ready = false;
 async function init(db) {
   if (ready) return;
   await db.batch(SCHEMA.map(s => db.prepare(s)));
-  for (const q of [`ALTER TABLE expenses ADD COLUMN paid_cash INTEGER NOT NULL DEFAULT 1`, `ALTER TABLE sales ADD COLUMN customer_id INTEGER`, `ALTER TABLE sales ADD COLUMN campaign_id INTEGER`, `ALTER TABLE sales ADD COLUMN source TEXT`, `ALTER TABLE logistics ADD COLUMN pay_method TEXT`, `ALTER TABLE logistics ADD COLUMN pickup_method TEXT`]) { try { await db.prepare(q).run(); } catch (e) { /* já existe */ } }
+  for (const q of [`ALTER TABLE expenses ADD COLUMN paid_cash INTEGER NOT NULL DEFAULT 1`, `ALTER TABLE sales ADD COLUMN customer_id INTEGER`, `ALTER TABLE sales ADD COLUMN campaign_id INTEGER`, `ALTER TABLE sales ADD COLUMN source TEXT`, `ALTER TABLE logistics ADD COLUMN pay_method TEXT`, `ALTER TABLE logistics ADD COLUMN pickup_method TEXT`, `ALTER TABLE giving ADD COLUMN status TEXT NOT NULL DEFAULT 'Pago'`]) { try { await db.prepare(q).run(); } catch (e) { /* já existe */ } }
   try { await db.prepare(`CREATE INDEX IF NOT EXISTS sales_cust ON sales(customer_id)`).run(); } catch (e) {}
   ready = true;
 }
@@ -442,19 +443,44 @@ export async function onRequest(ctx) {
   }
 
   // Gastos mensais (Giving)
+  async function metaSpend(mo) {
+    if (!env.META_TOKEN || !env.META_ACT) return null;
+    const key = `adspend:${mo}`;
+    const c = await db.prepare(`SELECT v FROM settings WHERE k=?`).bind(key).first();
+    if (c) { const x = JSON.parse(c.v); if (Date.now() - x.ts < 6 * 3600e3) return x.data; }
+    try {
+      const act = String(env.META_ACT).replace(/^act_/, ""), G = "https://graph.facebook.com/v26.0";
+      const endD = new Date(Date.UTC(+mo.slice(0, 4), +mo.slice(5, 7), 0)).toISOString().slice(0, 10);
+      const tr = encodeURIComponent(JSON.stringify({ since: mo + "-01", until: endD < today() ? endD : today() }));
+      const [acc, ins] = await Promise.all([fetch(`${G}/act_${act}?fields=currency&access_token=${env.META_TOKEN}`).then(r => r.json()), fetch(`${G}/act_${act}/insights?fields=spend&time_range=${tr}&access_token=${env.META_TOKEN}`).then(r => r.json())]);
+      if (acc.error || ins.error) return { error: (acc.error || ins.error).message };
+      const spend = +(((ins.data || [])[0] || {}).spend || 0);
+      const rate = +((await db.prepare(`SELECT v FROM settings WHERE k='usd_rate'`).first()) || {}).v || 64;
+      const data = { spend, currency: acc.currency, mt: Math.round(acc.currency === "MZN" ? spend : spend * rate), rate };
+      await db.prepare(`INSERT INTO settings(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v`).bind(key, JSON.stringify({ ts: Date.now(), data })).run();
+      return data;
+    } catch (e) { return { error: e.message }; }
+  }
   const monthRange = mo => { const end = new Date(Date.UTC(+mo.slice(0, 4), +mo.slice(5, 7), 0)).toISOString().slice(0, 10); return [mo + "-01", end]; };
   if (path === "/giving" && m === "GET") {
     if (!mgr) return err("Só a gerência", 403);
     const mo = /^\d{4}-\d{2}$/.test(url.searchParams.get("month") || "") ? url.searchParams.get("month") : today().slice(0, 7);
+    await ensureLogSeed();
+    if (!(await db.prepare(`SELECT v FROM settings WHERE k='giving_seeded_nov26'`).first())) {
+      const st = GIVING_SEED.map(r => db.prepare(`INSERT INTO giving(day,description,category,amount,method,paid_by,notes,recurring,status,user_id,ts) VALUES(?,?,?,?,?,?,?,?,?,?,?)`).bind(r.day, r.description, r.category, r.amount, r.method || "", r.paid_by || "", r.notes || "", r.recurring, r.status, user.id, Date.now()));
+      st.push(db.prepare(`INSERT INTO settings(k,v) VALUES('giving_seeded_nov26','1') ON CONFLICT(k) DO NOTHING`));
+      await db.batch(st);
+    }
     const [a, b] = monthRange(mo);
-    const rows = (await db.prepare(`SELECT g.id,g.day,g.description,g.category,g.amount,g.method,g.paid_by,g.notes,g.recurring,g.has_receipt, u.name AS by_name FROM giving g LEFT JOIN users u ON u.id=g.user_id WHERE g.day BETWEEN ? AND ? ORDER BY g.day DESC, g.id DESC`).bind(a, b).all()).results;
+    const rows = (await db.prepare(`SELECT g.id,g.day,g.description,g.category,g.amount,g.method,g.paid_by,g.notes,g.recurring,g.has_receipt,g.status, u.name AS by_name FROM giving g LEFT JOIN users u ON u.id=g.user_id WHERE g.day BETWEEN ? AND ? ORDER BY g.day DESC, g.id DESC`).bind(a, b).all()).results;
     const till = (await db.prepare(`SELECT e.id,e.day,e.type,e.amount,e.notes, u.name AS by_name FROM expenses e LEFT JOIN users u ON u.id=e.user_id WHERE e.day BETWEEN ? AND ? ORDER BY e.day DESC`).bind(a, b).all()).results;
     const sales = await db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(subtotal),0) products, COALESCE(SUM(delivery),0) delivery FROM sales WHERE void=0 AND day BETWEEN ? AND ?`).bind(a, b).first();
     const comm = (await db.prepare(`SELECT u.name, u.commission pct, SUM(s.subtotal) total FROM sales s JOIN users u ON u.id=s.user_id WHERE s.void=0 AND s.day BETWEEN ? AND ? AND u.commission>0 GROUP BY u.id`).bind(a, b).all()).results;
     // Logística: pagamento da encomenda conta no mês da encomenda; levantamento no mês da chegada
     const logOrders = (await db.prepare(`SELECT id,name,order_day day,mzn amount,via,brand,pay_method method FROM logistics WHERE mzn>0 AND order_day BETWEEN ? AND ? ORDER BY order_day DESC`).bind(a, b).all()).results;
     const logPickups = (await db.prepare(`SELECT id,name,COALESCE(NULLIF(arrival_day,''),order_day) day,pickup amount,via,brand,pickup_method method FROM logistics WHERE pickup>0 AND COALESCE(NULLIF(arrival_day,''),order_day) BETWEEN ? AND ? ORDER BY day DESC`).bind(a, b).all()).results;
-    return json({ month: mo, rows, till, logOrders, logPickups, sales, commissions: comm.map(c => ({ ...c, value: Math.round(c.total * c.pct / 100) })) });
+    const meta = await metaSpend(mo);
+    return json({ month: mo, rows, till, logOrders, logPickups, meta, sales, commissions: comm.map(c => ({ ...c, value: Math.round(c.total * c.pct / 100) })) });
   }
   const GF = ["day", "description", "category", "method", "paid_by", "notes"];
   async function saveReceipt(id, data) {
@@ -466,9 +492,10 @@ export async function onRequest(ctx) {
   if (path === "/giving" && m === "POST") {
     if (!mgr) return err("Só a gerência", 403);
     const amount = Math.round(+body.amount || 0);
-    if (!(amount > 0)) return err("Valor inválido");
+    const status = body.status === "Por pagar" ? "Por pagar" : "Pago";
+    if (!(amount > 0) && status === "Pago") return err("Escreve o valor pago");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(body.day || "")) return err("Data inválida");
-    const r = await db.prepare(`INSERT INTO giving(${GF.join(",")},amount,recurring,user_id,ts) VALUES(${GF.map(() => "?").join(",")},?,?,?,?)`).bind(...GF.map(k => String(body[k] || "").slice(0, 300)), amount, body.recurring ? 1 : 0, user.id, Date.now()).run();
+    const r = await db.prepare(`INSERT INTO giving(${GF.join(",")},amount,recurring,status,user_id,ts) VALUES(${GF.map(() => "?").join(",")},?,?,?,?,?)`).bind(...GF.map(k => String(body[k] || "").slice(0, 300)), amount, body.recurring ? 1 : 0, status, user.id, Date.now()).run();
     try { await saveReceipt(r.meta.last_row_id, body.receipt); } catch (e) { return err(e.message); }
     return json({ ok: true, id: r.meta.last_row_id });
   }
@@ -483,7 +510,7 @@ export async function onRequest(ctx) {
       const ex = await db.prepare(`SELECT id FROM giving WHERE day BETWEEN ? AND ? AND description=? AND category=?`).bind(ta, tb, g.description, g.category).first();
       if (ex) continue;
       const d = to + g.day.slice(7); const day = d > tb ? tb : d;
-      await db.prepare(`INSERT INTO giving(day,description,category,amount,method,paid_by,notes,recurring,user_id,ts) VALUES(?,?,?,?,?,?,?,1,?,?)`).bind(day, g.description, g.category, g.amount, g.method, g.paid_by, g.notes, user.id, Date.now()).run();
+      await db.prepare(`INSERT INTO giving(day,description,category,amount,method,paid_by,notes,recurring,status,user_id,ts) VALUES(?,?,?,?,?,?,?,1,'Por pagar',?,?)`).bind(to + "-01", g.description, g.category, g.amount, g.method, g.paid_by, "", user.id, Date.now()).run();
       n++;
     }
     return json({ ok: true, n, from: prev });
@@ -493,7 +520,8 @@ export async function onRequest(ctx) {
     if (!mgr) return err("Só a gerência", 403);
     const sets = [], b = [];
     GF.forEach(k => { if (body[k] != null) { sets.push(`${k}=?`); b.push(String(body[k]).slice(0, 300)); } });
-    if (body.amount != null) { const a = Math.round(+body.amount || 0); if (!(a > 0)) return err("Valor inválido"); sets.push("amount=?"); b.push(a); }
+    if (body.status != null) { sets.push("status=?"); b.push(body.status === "Por pagar" ? "Por pagar" : "Pago"); }
+    if (body.amount != null) { const a = Math.round(+body.amount || 0); if (!(a > 0) && body.status !== "Por pagar") return err("Escreve o valor pago"); sets.push("amount=?"); b.push(a); }
     if (body.recurring != null) { sets.push("recurring=?"); b.push(body.recurring ? 1 : 0); }
     if (sets.length) await db.prepare(`UPDATE giving SET ${sets.join(",")} WHERE id=?`).bind(...b, +gM[1]).run();
     try { await saveReceipt(+gM[1], body.receipt); } catch (e) { return err(e.message); }
@@ -512,18 +540,19 @@ export async function onRequest(ctx) {
     return json({ data: r.data });
   }
 
+  async function ensureLogSeed() {
+    if (await db.prepare(`SELECT v FROM settings WHERE k='logistics_seeded'`).first()) return;
+    const n = await db.prepare(`SELECT COUNT(*) n FROM logistics`).first();
+    if (!n.n) {
+      const st = LOG_SEED.map(r => db.prepare(`INSERT INTO logistics(name,order_day,arrival_day,status,via,usd,mzn,pickup,brand,ts) VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(r.name, r.order_day, r.arrival_day || "", r.status, r.via, r.usd, r.mzn, r.pickup, r.brand || "", Date.now()));
+      for (let i = 0; i < st.length; i += 50) await db.batch(st.slice(i, i + 50));
+    }
+    await db.prepare(`INSERT INTO settings(k,v) VALUES('logistics_seeded','1') ON CONFLICT(k) DO NOTHING`).run();
+  }
   // Logística (encomendas da China)
   if (path.startsWith("/logistics") && !mgr) return err("Só a gerência", 403);
   if (path === "/logistics" && m === "GET") {
-    const seeded = await db.prepare(`SELECT v FROM settings WHERE k='logistics_seeded'`).first();
-    if (!seeded) {
-      const n = await db.prepare(`SELECT COUNT(*) n FROM logistics`).first();
-      if (!n.n) {
-        const st = LOG_SEED.map(r => db.prepare(`INSERT INTO logistics(name,order_day,arrival_day,status,via,usd,mzn,pickup,brand,ts) VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(r.name, r.order_day, r.arrival_day || "", r.status, r.via, r.usd, r.mzn, r.pickup, r.brand || "", Date.now()));
-        for (let i = 0; i < st.length; i += 50) await db.batch(st.slice(i, i + 50));
-      }
-      await db.prepare(`INSERT INTO settings(k,v) VALUES('logistics_seeded','1') ON CONFLICT(k) DO NOTHING`).run();
-    }
+    await ensureLogSeed();
     const rows = (await db.prepare(`SELECT id,name,order_day,arrival_day,status,via,usd,mzn,pickup,supplier,brand,tracking,notes,has_file,pay_method,pickup_method FROM logistics ORDER BY order_day DESC, id DESC`).all()).results;
     return json({ rows });
   }

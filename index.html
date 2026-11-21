@@ -9,8 +9,18 @@
 (function(){var v=false;try{if(/[?&]publico\b/i.test(location.search)){sessionStorage.removeItem("mtaVip2");}if(/[?&]vip\b/i.test(location.search)){sessionStorage.setItem("mtaVip2","1");}localStorage.removeItem("mtaVip");localStorage.removeItem("mtaVip2");v=sessionStorage.getItem("mtaVip2")==="1";}catch(e){v=/[?&]vip\b/i.test(location.search);}
 var PUBLICO_50=false; /* até amanhã: público também vê 50%. Mudar para false para o público passar a 30%. */
 if(PUBLICO_50){window.MTA_VIP_REAL=v;v=true;}
-window.MTA_VIP=v;window.MTA_BN=v?"banner-bf":"banner-bf30";
-document.write('<link rel="preload" as="image" type="image/webp" imagesrcset="img/'+MTA_BN+'-720.webp 720w, img/'+MTA_BN+'-1036.webp 1036w" imagesizes="(min-width:760px) 540px, 100vw" fetchpriority="high">');})();
+window.MTA_VIP=v;
+/* Fases da promoção (hora de Maputo):
+   1) Black Friday até dom 22/11 23:59 → VIP 50% / público 30%
+   2) Última chance de seg 23/11 a seg 30/11 23:59 → VIP 25% / público 15% (timer de 24h)
+   3) a partir de 1/12 → sem promoção */
+var T1=Date.parse("2026-11-23T00:00:00+02:00"), T2=Date.parse("2026-12-01T00:00:00+02:00"), now=Date.now();
+var ph=now<T1?1:(now<T2?2:3); window.MTA_PH=ph;
+window.MTA_PCT=ph===1?(v?50:30):ph===2?(v?25:15):0;
+window.MTA_END=ph===1?T1:null;
+window.MTA_BN=ph===1?(v?"banner-bf":"banner-bf30"):ph===2?(v?"banner-bf25":"banner-bf15"):"";
+if(!MTA_BN)document.write('<style>#heroLink{display:none}</style>');
+if(MTA_BN)document.write('<link rel="preload" as="image" type="image/webp" imagesrcset="img/'+MTA_BN+'-720.webp 720w, img/'+MTA_BN+'-1036.webp 1036w" imagesizes="(min-width:760px) 540px, 100vw" fetchpriority="high">');})();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -301,7 +311,7 @@ document.write('<link rel="preload" as="image" type="image/webp" imagesrcset="im
 </nav>
 
 <div class="hero hero-img" id="heroLink" role="link" tabindex="0" aria-label="Black Friday — 50% desconto. Ver coleção">
-  <script>document.write('<picture><source type="image/webp" srcset="img/'+MTA_BN+'-720.webp 720w, img/'+MTA_BN+'-1036.webp 1036w" sizes="(min-width:760px) 540px, 100vw"><img class="hfg" src="img/'+MTA_BN+'-1036.jpg" srcset="img/'+MTA_BN+'-720.jpg 720w, img/'+MTA_BN+'-1036.jpg 1036w" sizes="(min-width:760px) 540px, 100vw" alt="Black Friday — '+(MTA_VIP?50:30)+'% de desconto em tudo" fetchpriority="high" width="1036" height="1518"></picture>')</script><noscript><picture><source type="image/webp" srcset="img/banner-bf30-720.webp 720w, img/banner-bf30-1036.webp 1036w" sizes="(min-width:760px) 540px, 100vw"><img class="hfg" src="img/banner-bf30-1036.jpg" srcset="img/banner-bf30-720.jpg 720w, img/banner-bf30-1036.jpg 1036w" sizes="(min-width:760px) 540px, 100vw" alt="Black Friday — 30% de desconto em tudo" fetchpriority="high" width="1036" height="1518"></picture></noscript>
+  <script>if(MTA_BN)document.write('<picture><source type="image/webp" srcset="img/'+MTA_BN+'-720.webp 720w, img/'+MTA_BN+'-1036.webp 1036w" sizes="(min-width:760px) 540px, 100vw"><img class="hfg" src="img/'+MTA_BN+'-1036.jpg" srcset="img/'+MTA_BN+'-720.jpg 720w, img/'+MTA_BN+'-1036.jpg 1036w" sizes="(min-width:760px) 540px, 100vw" alt="Black Friday — '+(MTA_VIP?50:30)+'% de desconto em tudo" fetchpriority="high" width="1036" height="1518"></picture>')</script><noscript><picture><source type="image/webp" srcset="img/banner-bf30-720.webp 720w, img/banner-bf30-1036.webp 1036w" sizes="(min-width:760px) 540px, 100vw"><img class="hfg" src="img/banner-bf30-1036.jpg" srcset="img/banner-bf30-720.jpg 720w, img/banner-bf30-1036.jpg 1036w" sizes="(min-width:760px) 540px, 100vw" alt="Black Friday — 30% de desconto em tudo" fetchpriority="high" width="1036" height="1518"></picture></noscript>
   <div class="hero-in">
     <h1 class="vh">MTA Nation · Catálogo 2026</h1>
     <a class="cta vh" href="#main" id="cta">Ver coleção</a>
@@ -516,7 +526,7 @@ CATS.forEach(c=>c.groups.forEach(g=>{g.items=g.items.filter(p=>!HIDDEN_IDS.inclu
 for(let i=CATS.length-1;i>=0;i--){CATS[i].groups=CATS[i].groups.filter(g=>g.items.length); if(!CATS[i].groups.length) CATS.splice(i,1);}
 // ===== PROMOÇÃO DE PREÇOS =====
 // on:true aplica o desconto a todos os produtos visíveis; on:false volta aos preços normais.
-const SALE={ on:true, pct:(window.MTA_VIP?50:30), label:(window.MTA_VIP_REAL!==false&&window.MTA_VIP&&window.MTA_VIP_REAL!==undefined?"Black Friday VIP":(window.MTA_VIP&&window.MTA_VIP_REAL===undefined?"Black Friday VIP":"Black Friday")) };
+const SALE={ on:window.MTA_PCT>0, pct:window.MTA_PCT, label:(window.MTA_PH===1?"Black Friday":"Última chance")+(window.MTA_VIP?" VIP":"") };
 if(SALE.on) CATS.forEach(c=>c.groups.forEach(g=>g.items.forEach(p=>{
   if(p.price==null) return;
   const cut=v=>Math.round(v*(100-SALE.pct)/100);
@@ -915,12 +925,12 @@ document.getElementById('cta').addEventListener('click',e=>{e.preventDefault();c
 
 // ===== PROMOÇÃO (barra no topo) =====
 // Contagem de 24h igual para todos: termina sempre à meia-noite de Maputo e recomeça no dia seguinte.
-const PROMO={ on:true, text:(window.MTA_VIP&&window.MTA_VIP_REAL!==false?"<b>Black Friday VIP</b> · 50% desconto em tudo":window.MTA_VIP?"<b>Black Friday</b> · 50% desconto em tudo":"<b>Black Friday</b> · 30% desconto em tudo"), button:"Ver promoção" };
+const PROMO={ on:window.MTA_PCT>0, text:`<b>${window.MTA_PH===1?"Black Friday":"Última chance"}${window.MTA_VIP?" VIP":""}</b> · ${window.MTA_PCT}% desconto em tudo`, button:"Ver promoção" };
 (function(){const bar=document.getElementById('ann'); if(!PROMO.on) return;
 document.getElementById('ann-t').innerHTML=PROMO.text; document.getElementById('ann-a').textContent=PROMO.button;
 const DAY=86400000, TZ=2*3600000; // Maputo = UTC+2
 const p=n=>String(n).padStart(2,'0'), el=id=>document.getElementById(id);
-function tick(){const now=Date.now(); const end=Math.floor((now+TZ)/DAY+1)*DAY-TZ; const t=Math.floor((end-now)/1000);
+function tick(){const now=Date.now(); if(window.MTA_PCT && now>=Date.parse(window.MTA_PH===1?"2026-11-23T00:00:00+02:00":"2026-12-01T00:00:00+02:00")){location.reload();return false} const end=window.MTA_END||Math.floor((now+TZ)/DAY+1)*DAY-TZ; const t=Math.floor((end-now)/1000);
  el('cd-d').textContent='00'; el('cd-h').textContent=p(Math.floor(t/3600)); el('cd-m').textContent=p(Math.floor(t%3600/60)); el('cd-s').textContent=p(t%60)}
 tick(); bar.classList.add('on'); setInterval(tick,1000);
 el('ann-a').addEventListener('click',e=>{e.preventDefault();document.getElementById('cta').click()});})();

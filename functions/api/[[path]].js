@@ -13,13 +13,15 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS expenses(id INTEGER PRIMARY KEY AUTOINCREMENT, day TEXT NOT NULL, type TEXT, amount INTEGER NOT NULL, notes TEXT, user_id INTEGER, ts INTEGER)`,
   `CREATE TABLE IF NOT EXISTS stock_log(id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, user_id INTEGER, product_id TEXT, cor TEXT, size TEXT, before INTEGER, after INTEGER, reason TEXT)`,
   `CREATE TABLE IF NOT EXISTS settings(k TEXT PRIMARY KEY, v TEXT)`,
+  `CREATE TABLE IF NOT EXISTS customers(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT UNIQUE, birthday TEXT, ring_size TEXT, wrist_size TEXT, instagram TEXT, source TEXT, notes TEXT, created TEXT, updated INTEGER)`,
   `CREATE TABLE IF NOT EXISTS cash_moves(id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, day TEXT, type TEXT NOT NULL, amount INTEGER NOT NULL, counted INTEGER, expected INTEGER, user_id INTEGER, notes TEXT)`,
 ];
 let ready = false;
 async function init(db) {
   if (ready) return;
   await db.batch(SCHEMA.map(s => db.prepare(s)));
-  try { await db.prepare(`ALTER TABLE expenses ADD COLUMN paid_cash INTEGER NOT NULL DEFAULT 1`).run(); } catch (e) { /* já existe */ }
+  for (const q of [`ALTER TABLE expenses ADD COLUMN paid_cash INTEGER NOT NULL DEFAULT 1`, `ALTER TABLE sales ADD COLUMN customer_id INTEGER`]) { try { await db.prepare(q).run(); } catch (e) { /* já existe */ } }
+  try { await db.prepare(`CREATE INDEX IF NOT EXISTS sales_cust ON sales(customer_id)`).run(); } catch (e) {}
   ready = true;
 }
 
@@ -32,6 +34,16 @@ const json = (d, status = 200, h = {}) => new Response(JSON.stringify(d), { stat
 const err = (msg, status = 400) => json({ error: msg }, status);
 // Data de Maputo (UTC+2)
 const today = () => new Date(Date.now() + 2 * 3600e3).toISOString().slice(0, 10);
+// Telefone normalizado: só dígitos; 9 dígitos a começar por 8 → +258
+function normPhone(p) { let d = String(p || "").replace(/\D/g, ""); if (d.length === 9 && /^8/.test(d)) d = "258" + d; if (d.startsWith("00")) d = d.slice(2); return d.length >= 9 ? d : ""; }
+async function upsertCustomer(db, { name, phone, source }) {
+  const ph = normPhone(phone); if (!ph) return null;
+  const ex = await db.prepare(`SELECT id,name FROM customers WHERE phone=?`).bind(ph).first();
+  if (ex) { if (!ex.name && name) await db.prepare(`UPDATE customers SET name=?, updated=? WHERE id=?`).bind(name, Date.now(), ex.id).run(); return ex.id; }
+  const r = await db.prepare(`INSERT INTO customers(name,phone,source,created,updated) VALUES(?,?,?,?,?)`).bind(name || "", ph, source || "", today(), Date.now()).run();
+  return r.meta.last_row_id;
+}
+const CUST_STATS = `SELECT c.*, COUNT(s.id) n, COALESCE(SUM(s.subtotal),0) total, MAX(s.ts) last FROM customers c LEFT JOIN sales s ON s.customer_id=c.id AND s.void=0`;
 const COR_LABEL = { ouro: "Dourado", prata: "Prateado", "-": "—" };
 
 async function auth(req, db) {
@@ -155,6 +167,8 @@ export async function onRequest(ctx) {
     const r = await db.prepare(`INSERT INTO sales(day,ts,user_id,channel,payment,delivery,subtotal,customer,phone,notes) VALUES(?,?,?,?,?,?,?,?,?,?)`)
       .bind(day, Date.now(), sellerId, body.channel || "Loja", body.payment || "", Math.round(+body.delivery || 0), subtotal, (body.customer || "").slice(0, 80), (body.phone || "").slice(0, 30), (body.notes || "").slice(0, 300)).run();
     const saleId = r.meta.last_row_id;
+    const custId = await upsertCustomer(db, { name: (body.customer || "").slice(0, 80), phone: body.phone, source: body.channel });
+    if (custId) await db.prepare(`UPDATE sales SET customer_id=? WHERE id=?`).bind(custId, saleId).run();
     await db.batch(items.map(i => db.prepare(`INSERT INTO sale_items(sale_id,product_id,name,cor,size,qty,unit_price,list_price) VALUES(?,?,?,?,?,?,?,?)`)
       .bind(saleId, i.product_id, (i.name || "").slice(0, 120), i.cor || "-", i.size || "-", Math.round(i.qty), Math.round(i.unit_price), i.list_price == null ? null : Math.round(i.list_price))));
     await adjustStock(db, user, items.map(i => ({ product_id: i.product_id, cor: i.cor || "-", size: i.size || "-", delta: -Math.round(i.qty) })), `venda #${saleId}`);
@@ -262,6 +276,61 @@ export async function onRequest(ctx) {
     try { await db.prepare(`UPDATE users SET ${sets.join(",")} WHERE id=?`).bind(...b, id).run(); }
     catch (e) { return err("Esse PIN já está a ser usado. Escolhe outro."); }
     if (body.active === 0 || body.pin) await db.prepare(`DELETE FROM sessions WHERE user_id=?`).bind(id).run();
+    return json({ ok: true });
+  }
+
+  // Clientes
+  if (path === "/customers/lookup" && m === "GET") {
+    const ph = normPhone(url.searchParams.get("phone"));
+    if (!ph) return json({ customer: null });
+    const c = await db.prepare(`${CUST_STATS} WHERE c.phone=? GROUP BY c.id`).bind(ph).first();
+    return json({ customer: c || null });
+  }
+  if (path === "/customers" && m === "GET") {
+    if (!mgr) return err("Só a gerência", 403);
+    // liga vendas antigas com telefone a clientes
+    const orphan = (await db.prepare(`SELECT id,customer,phone,channel FROM sales WHERE customer_id IS NULL AND phone<>'' LIMIT 300`).all()).results;
+    for (const o of orphan) { const cid = await upsertCustomer(db, { name: o.customer, phone: o.phone, source: o.channel }); await db.prepare(`UPDATE sales SET customer_id=? WHERE id=?`).bind(cid || 0, o.id).run(); }
+    const q = (url.searchParams.get("q") || "").trim();
+    const sort = { total: "total DESC", last: "last DESC", name: "c.name COLLATE NOCASE" }[url.searchParams.get("sort")] || "last DESC";
+    const where = q ? `WHERE c.name LIKE ? OR c.phone LIKE ? OR c.instagram LIKE ?` : "";
+    const b = q ? [`%${q}%`, `%${q.replace(/\D/g, "") || q}%`, `%${q}%`] : [];
+    const rows = (await db.prepare(`${CUST_STATS} ${where} GROUP BY c.id ORDER BY ${sort} LIMIT 300`).bind(...b).all()).results;
+    const tot = await db.prepare(`SELECT COUNT(*) n FROM customers`).first();
+    return json({ rows, total: tot.n });
+  }
+  if (path === "/customers.csv" && m === "GET") {
+    if (!mgr) return err("Só a gerência", 403);
+    const rows = (await db.prepare(`${CUST_STATS} GROUP BY c.id ORDER BY c.name COLLATE NOCASE`).all()).results;
+    const head = "Nome,Telefone,Compras,Total gasto (MT),Última compra,Aniversário,Tamanho anel,Tamanho mascote,Instagram,Origem,Notas,Cliente desde";
+    const csv = [head].concat(rows.map(r => [r.name, "+" + r.phone, r.n, r.total, r.last ? new Date(r.last + 7200e3).toISOString().slice(0, 10) : "", r.birthday || "", r.ring_size || "", r.wrist_size || "", r.instagram || "", r.source || "", r.notes || "", r.created || ""].map(v => csvCell(v ?? "")).join(","))).join("\n");
+    return new Response("﻿" + csv, { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="clientes-mta-${today()}.csv"`, "cache-control": "no-store" } });
+  }
+  const cM = path.match(/^\/customers\/(\d+)$/);
+  if (cM && m === "GET") {
+    if (!mgr) return err("Só a gerência", 403);
+    const c = await db.prepare(`${CUST_STATS} WHERE c.id=? GROUP BY c.id`).bind(+cM[1]).first();
+    if (!c) return err("Cliente não encontrado", 404);
+    const sales = await saleDetail(db, "s.customer_id=?", [c.id]);
+    return json({ customer: c, sales: sales.reverse() });
+  }
+  const CF = ["name", "birthday", "ring_size", "wrist_size", "instagram", "source", "notes"];
+  if (path === "/customers" && m === "POST") {
+    const ph = normPhone(body.phone);
+    if (!ph) return err("Telefone inválido");
+    const ex = await db.prepare(`SELECT id FROM customers WHERE phone=?`).bind(ph).first();
+    if (ex) return err("Já existe um cliente com esse telefone");
+    const r = await db.prepare(`INSERT INTO customers(phone,${CF.join(",")},created,updated) VALUES(?,${CF.map(() => "?").join(",")},?,?)`).bind(ph, ...CF.map(k => String(body[k] || "").slice(0, 300)), today(), Date.now()).run();
+    return json({ ok: true, id: r.meta.last_row_id });
+  }
+  if (cM && m === "PUT") {
+    if (!mgr) return err("Só a gerência", 403);
+    const sets = [], b = [];
+    CF.forEach(k => { if (body[k] != null) { sets.push(`${k}=?`); b.push(String(body[k]).slice(0, 300)); } });
+    if (body.phone != null) { const ph = normPhone(body.phone); if (!ph) return err("Telefone inválido"); sets.push("phone=?"); b.push(ph); }
+    if (!sets.length) return err("Nada para alterar");
+    try { await db.prepare(`UPDATE customers SET ${sets.join(",")}, updated=? WHERE id=?`).bind(...b, Date.now(), +cM[1]).run(); }
+    catch (e) { return err("Já existe um cliente com esse telefone"); }
     return json({ ok: true });
   }
 

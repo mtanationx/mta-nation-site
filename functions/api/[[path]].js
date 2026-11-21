@@ -337,6 +337,43 @@ export async function onRequest(ctx) {
     return json({ ok: true });
   }
 
+  // Anúncios Meta (Marketing API). Segredos no Cloudflare: META_TOKEN, META_ACT
+  if (path === "/ads" && m === "GET") {
+    if (!mgr) return err("Só a gerência", 403);
+    const month = /^\d{4}-\d{2}$/.test(url.searchParams.get("month") || "") ? url.searchParams.get("month") : today().slice(0, 7);
+    const since = month + "-01";
+    const endD = new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7), 0)).toISOString().slice(0, 10);
+    const until = endD < today() ? endD : today();
+    // Vendas da loja vindas de anúncios (origem escolhida no POS)
+    const pos = await db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(subtotal),0) revenue FROM sales WHERE void=0 AND source LIKE 'Anúncio%' AND day BETWEEN ? AND ?`).bind(since, until).first();
+    const rate = +((await db.prepare(`SELECT v FROM settings WHERE k='usd_rate'`).first()) || {}).v || 64;
+    if (!env.META_TOKEN || !env.META_ACT) return json({ month, configured: false, pos, rate });
+    const key = `ads:${month}`;
+    const cached = await db.prepare(`SELECT v FROM settings WHERE k=?`).bind(key).first();
+    if (cached && !url.searchParams.get("fresh")) { const c = JSON.parse(cached.v); if (Date.now() - c.ts < 30 * 60e3) return json({ ...c.data, pos, rate, cached: true }); }
+    const act = String(env.META_ACT).replace(/^act_/, "");
+    const G = "https://graph.facebook.com/v26.0";
+    const tr = encodeURIComponent(JSON.stringify({ since, until }));
+    const fields = "campaign_id,campaign_name,spend,impressions,reach,clicks,actions,cost_per_action_type";
+    try {
+      const [accR, campR, totR] = await Promise.all([
+        fetch(`${G}/act_${act}?fields=name,currency&access_token=${env.META_TOKEN}`),
+        fetch(`${G}/act_${act}/insights?level=campaign&fields=${fields}&time_range=${tr}&limit=200&access_token=${env.META_TOKEN}`),
+        fetch(`${G}/act_${act}/insights?fields=spend,impressions,reach,clicks,actions&time_range=${tr}&access_token=${env.META_TOKEN}`),
+      ]);
+      const acc = await accR.json(), camp = await campR.json(), tot = await totR.json();
+      const e = acc.error || camp.error || tot.error;
+      if (e) return json({ month, configured: true, error: e.message || "Erro Meta", pos, rate });
+      const act_ = (arr, t) => +((arr || []).find(a => a.action_type === t) || {}).value || 0;
+      const MSG = "onsite_conversion.messaging_conversation_started_7d", FIRST = "onsite_conversion.messaging_first_reply";
+      const pick = r => ({ spend: +r.spend || 0, impressions: +r.impressions || 0, reach: +r.reach || 0, clicks: +r.clicks || 0, conversations: act_(r.actions, MSG), new_contacts: act_(r.actions, FIRST) });
+      const data = { month, since, until, configured: true, account: acc.name, currency: acc.currency, total: pick((tot.data || [])[0] || {}),
+        campaigns: (camp.data || []).map(r => ({ id: r.campaign_id, name: r.campaign_name, ...pick(r) })).sort((a, b) => b.spend - a.spend) };
+      await db.prepare(`INSERT INTO settings(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v`).bind(key, JSON.stringify({ ts: Date.now(), data })).run();
+      return json({ ...data, pos, rate });
+    } catch (e) { return json({ month, configured: true, error: "Não consegui ligar ao Meta: " + e.message, pos, rate }); }
+  }
+
   // Campanhas
   if (path === "/campaigns/active" && m === "GET") {
     const d = today();

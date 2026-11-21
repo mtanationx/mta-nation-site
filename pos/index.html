@@ -140,8 +140,8 @@ const fmt=n=>(Math.round(n||0)).toString().replace(/\B(?=(\d{3})+(?!\d))/g,".")+
 const COR={ouro:"Dourado",prata:"Prateado","-":""};
 const CORS={ouro:"D",prata:"P"};
 const PAYS=["Cash","POS","M-Pesa","e-Mola","BIM","BCI","Transferência","Outro"];
-const SOURCES=["Cliente habitual","Passou na loja","Recomendação","Instagram (sem anúncio)","Outro"];
-const CTYPES=["Anúncio Instagram/Facebook","Lista de transmissão WhatsApp","Status WhatsApp","Mensagem a clientes (POS)","Influencer","Evento","Outro"];
+const SOURCES=["Anúncio Instagram/Facebook","Cliente habitual","Passou na loja","Recomendação","Instagram (sem anúncio)","Outro"];
+const CTYPES=["Mensagem a clientes (POS)","Lista de transmissão WhatsApp","Status WhatsApp"];
 const ROLES={seller:"Vendedor",manager:"Gerente",admin:"Admin"};
 const EXP_TYPES=["Portador diário","Internet (dados)","Yango","Outros"];
 function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("on"),2600);}
@@ -186,7 +186,7 @@ function render(){
   if(!S.user){ app.innerHTML=`<div class="login"><div class="lbox"><p>A carregar…</p></div></div>`; boot().then(render).catch(e=>{toast(e.message)}); return; }
   const admin=S.user.role==="admin";
   const mgr=admin||S.user.role==="manager";
-  const tabs=[["vender","Vender"],["fecho","Fecho"]].concat(mgr?[["caixa","Caixa"],["clientes","Clientes"],["campanhas","Campanhas"]]:[],[["stock","Stock"]],admin?[["relatorio","Relatório"],["equipa","Equipa"]]:[]);
+  const tabs=[["vender","Vender"],["fecho","Fecho"]].concat(mgr?[["caixa","Caixa"],["clientes","Clientes"],["campanhas","Marketing"]]:[],[["stock","Stock"]],admin?[["relatorio","Relatório"],["equipa","Equipa"]]:[]);
   app.innerHTML=`<div class="top"><span class="lg">MTA POS</span><div class="nav">${tabs.map(([k,l])=>`<button data-tab="${k}" class="${S.tab===k?"on":""}">${l}</button>`).join("")}</div>
     <div class="who"><span>${esc(S.user.name)}</span><button id="out">Sair</button></div></div><div id="view"></div>`;
   $$("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;render();});
@@ -457,29 +457,58 @@ async function custModal(id,after){
 
 /* ----- campanhas ----- */
 async function vCampanhas(v){
-  v.innerHTML=`<div class="wrap"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><h2 style="margin:0;font-size:18px">Campanhas</h2><button class="btn" id="ncp">+ Campanha</button></div><div id="cpb"><p class="empty">A carregar…</p></div></div>`;
-  $("#ncp").onclick=()=>campEdit(null,()=>vCampanhas(v));
+  S.mk=S.mk||"ads";
+  v.innerHTML=`<div class="wrap"><div class="cats" style="margin-bottom:12px"><button class="chip ${S.mk==="ads"?"on":""}" data-mk="ads">Anúncios Meta</button><button class="chip ${S.mk==="msg"?"on":""}" data-mk="msg">Mensagens WhatsApp</button></div><div id="mkb"></div></div>`;
+  $$("[data-mk]").forEach(b=>b.onclick=()=>{S.mk=b.dataset.mk;vCampanhas(v);});
+  if(S.mk==="ads") return vAds($("#mkb"));
+  return vMsgs($("#mkb"));
+}
+async function vAds(v,fresh){
+  S.am=S.am||S.today.slice(0,7);
+  v.innerHTML=`<div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><h2 style="margin:0;font-size:18px">Anúncios Meta</h2><div class="row"><input type="month" class="f" id="am" value="${S.am}" max="${S.today.slice(0,7)}" style="width:auto"><button class="btn sec" id="arf">Atualizar</button></div></div><div id="ab"><p class="empty">A carregar…</p></div>`;
+  $("#am").onchange=e=>{S.am=e.target.value;vAds(v);}; $("#arf").onclick=()=>vAds(v,true);
+  let r; try{ r=await api(`/ads?month=${S.am}${fresh?"&fresh=1":""}`); }catch(e){ $("#ab").innerHTML=`<p class="empty">${esc(e.message)}</p>`; return; }
+  const posBox=(spendMT)=>`<div class="sec-h"><h3 class="mont">RESULTADO NA LOJA</h3><span class="small muted">vendas com origem “Anúncio” no POS</span></div><div class="kpis"><div class="kpi"><small>Vendas de anúncios</small><b>${r.pos.n}</b></div><div class="kpi"><small>Receita</small><b>${fmt(r.pos.revenue)}</b></div>${spendMT!=null?`<div class="kpi"><small>Retorno</small><b style="color:${spendMT&&r.pos.revenue/spendMT>=3?"var(--grn)":spendMT&&r.pos.revenue/spendMT<1?"var(--red)":"inherit"}">${spendMT?(r.pos.revenue/spendMT).toFixed(1)+"×":"—"}</b><div class="small muted">receita ÷ investimento</div></div>`:""}</div>`;
+  if(!r.configured){ $("#ab").innerHTML=`<div class="card" style="margin-top:12px"><b>Ligar à conta de anúncios do Meta</b><p class="small muted">Ainda não está ligado. Assim que estiver, aparece aqui automaticamente quanto investiste por mês, as conversas no WhatsApp que cada anúncio gerou e o custo por conversa — os mesmos números do Gestor de Anúncios.</p></div>${posBox(null)}`; return; }
+  if(r.error){ $("#ab").innerHTML=`<div class="card" style="margin-top:12px;border-color:var(--red)"><b>Erro do Meta</b><p class="small">${esc(r.error)}</p></div>${posBox(null)}`; return; }
+  const cur=r.currency||"USD", money=n=>cur==="MZN"?fmt(n):(cur==="USD"?"$":cur+" ")+(+n).toLocaleString("pt-PT",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const toMT=n=>cur==="MZN"?n:n*r.rate, T=r.total, cpc=T.conversations?T.spend/T.conversations:null;
+  $("#ab").innerHTML=`<p class="small muted" style="margin:8px 0 12px">${esc(r.account||"")} · ${dmy(r.since)} a ${dmy(r.until)}${r.cached?" · atualizado há menos de 30 min":""}</p>
+    <div class="kpis"><div class="kpi" style="border-color:var(--ink)"><small>Investido</small><b>${money(T.spend)}</b>${cur!=="MZN"?`<div class="small muted">≈ ${fmt(toMT(T.spend))} (1 USD = ${r.rate} MT)</div>`:""}</div>
+      <div class="kpi"><small>Conversas iniciadas</small><b>${T.conversations}</b><div class="small muted">${T.new_contacts} contactos novos</div></div>
+      <div class="kpi"><small>Custo por conversa</small><b>${cpc==null?"—":money(cpc)}</b></div>
+      <div class="kpi"><small>Alcance</small><b>${T.reach.toLocaleString("pt-PT")}</b><div class="small muted">${T.impressions.toLocaleString("pt-PT")} impressões</div></div>
+      <div class="kpi"><small>Cliques</small><b>${T.clicks.toLocaleString("pt-PT")}</b></div></div>
+    <div class="sec-h"><h3 class="mont">POR CAMPANHA</h3></div>
+    <div class="card" style="overflow-x:auto"><table class="t"><tr><th>Campanha</th><th>Investido</th><th>Conversas</th><th>Custo/conversa</th><th>Alcance</th><th>Cliques</th></tr>
+      ${r.campaigns.map(c=>`<tr><td><b>${esc(c.name)}</b></td><td class="fmt">${money(c.spend)}</td><td>${c.conversations}</td><td class="fmt">${c.conversations?money(c.spend/c.conversations):"—"}</td><td>${c.reach.toLocaleString("pt-PT")}</td><td>${c.clicks}</td></tr>`).join("")||`<tr><td colspan="6" class="muted">Sem anúncios ativos neste mês.</td></tr>`}</table></div>
+    ${posBox(toMT(T.spend))}
+    ${cur!=="MZN"&&S.user.role==="admin"?`<p class="small muted">Taxa usada: 1 USD = <input id="rate" value="${r.rate}" inputmode="decimal" style="width:70px;padding:4px;border:1px solid var(--line);border-radius:6px"> MT <button class="chip" id="rsv">Guardar</button></p>`:""}`;
+  const rsv=$("#rsv"); if(rsv) rsv.onclick=async()=>{ try{ await api("/settings",{method:"PUT",body:{usd_rate:+$("#rate").value.replace(",",".")}}); toast("Taxa guardada"); vAds(v);}catch(e){toast(e.message);} };
+}
+async function vMsgs(v){
+  v.innerHTML=`<div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><h2 style="margin:0;font-size:18px">Mensagens WhatsApp</h2><button class="btn" id="ncp">+ Mensagem</button></div><div id="cpb"><p class="empty">A carregar…</p></div>`;
+  $("#ncp").onclick=()=>campEdit(null,()=>vMsgs(v));
   let r; try{ r=await api("/campaigns"); }catch(e){ $("#cpb").innerHTML=`<p class="empty">${esc(e.message)}</p>`; return; }
   const card=c=>{ const cps=c.n?c.cost/c.n:null, roas=c.cost?c.revenue/c.cost:null;
     return `<div class="card" style="margin-bottom:10px;${c.active?"":"opacity:.6"}"><div class="row" style="justify-content:space-between;align-items:flex-start"><div><b style="font-size:15px">${esc(c.name)}</b><div class="small muted">${esc(c.type||"")}${c.start?` · ${dmy(c.start)}`:""}${c.end?` → ${dmy(c.end)}`:""}${c.active?"":" · terminada"}</div></div><div class="row"><button class="chip" data-ed="${c.id}">Editar</button>${/WhatsApp|POS/.test(c.type||"")?`<button class="chip on" data-send="${c.id}">Enviar mensagens</button>`:""}</div></div>
       <div class="kpis" style="margin:10px 0 0;grid-template-columns:repeat(auto-fit,minmax(110px,1fr))">
         <div class="kpi"><small>Vendas</small><b>${c.n}</b></div><div class="kpi"><small>Receita</small><b>${fmt(c.revenue)}</b></div>
-        <div class="kpi"><small>Clientes novos</small><b>${c.new_customers}</b></div><div class="kpi"><small>Custo</small><b>${fmt(c.cost)}</b></div>
-        <div class="kpi"><small>Custo por venda</small><b>${cps==null?"—":fmt(cps)}</b></div><div class="kpi"><small>Retorno</small><b style="color:${roas==null?"inherit":roas>=3?"var(--grn)":roas<1?"var(--red)":"inherit"}">${roas==null?"—":roas.toFixed(1)+"×"}</b></div>
+        <div class="kpi"><small>Clientes novos</small><b>${c.new_customers}</b></div>
         ${c.sent?`<div class="kpi"><small>Mensagens enviadas</small><b>${c.sent}</b><div class="small muted">${c.bought_after} compraram em 14 dias</div></div>`:""}</div></div>`; };
-  $("#cpb").innerHTML=(r.rows.length?r.rows.map(card).join(""):`<div class="card"><p class="muted">Ainda sem campanhas. Cria a primeira (ex: “Black Friday — anúncio Instagram”) e na venda o vendedor escolhe de onde veio o cliente.</p></div>`)
-    +`<div class="sec-h"><h3 class="mont">VENDAS SEM CAMPANHA · ÚLTIMOS 30 DIAS</h3></div><div class="card"><table class="t"><tr><th>Origem</th><th>Vendas</th><th>Receita</th></tr>${r.sources30.map(x=>`<tr><td>${esc(x.source)}</td><td>${x.n}</td><td class="fmt">${fmt(x.revenue)}</td></tr>`).join("")||`<tr><td colspan="3" class="muted">—</td></tr>`}</table></div>`;
-  $$("[data-ed]").forEach(b=>b.onclick=()=>campEdit(r.rows.find(c=>c.id===+b.dataset.ed),()=>vCampanhas(v)));
-  $$("[data-send]").forEach(b=>b.onclick=()=>campSend(r.rows.find(c=>c.id===+b.dataset.send),()=>vCampanhas(v)));
+  $("#cpb").innerHTML=(r.rows.length?r.rows.map(card).join(""):`<div class="card"><p class="muted">Cria uma mensagem (ex: “Última chance Black Friday”), escolhe o grupo de clientes e envia uma a uma. Vês quantos compraram depois.</p></div>`)
+    +`<div class="sec-h"><h3 class="mont">DE ONDE VIERAM AS VENDAS · ÚLTIMOS 30 DIAS</h3></div><div class="card"><table class="t"><tr><th>Origem</th><th>Vendas</th><th>Receita</th></tr>${r.sources30.map(x=>`<tr><td>${esc(x.source)}</td><td>${x.n}</td><td class="fmt">${fmt(x.revenue)}</td></tr>`).join("")||`<tr><td colspan="3" class="muted">—</td></tr>`}</table></div>`;
+  $$("[data-ed]").forEach(b=>b.onclick=()=>campEdit(r.rows.find(c=>c.id===+b.dataset.ed),()=>vMsgs(v)));
+  $$("[data-send]").forEach(b=>b.onclick=()=>campSend(r.rows.find(c=>c.id===+b.dataset.send),()=>vMsgs(v)));
 }
 function campEdit(c,after){
   c=c||{name:"",type:CTYPES[0],start:S.today,end:"",cost:0,message:"",notes:"",active:1};
   const m=document.createElement("div"); m.className="mod";
-  m.innerHTML=`<div class="mbox"><div class="row" style="justify-content:space-between"><h2>${c.id?"Editar campanha":"Nova campanha"}</h2><button class="qbtn" data-x>✕</button></div>
-    <label class="l">Nome</label><input class="f" id="k_name" value="${esc(c.name)}" placeholder="ex: Black Friday — anúncio anéis">
+  m.innerHTML=`<div class="mbox"><div class="row" style="justify-content:space-between"><h2>${c.id?"Editar mensagem":"Nova mensagem"}</h2><button class="qbtn" data-x>✕</button></div>
+    <label class="l">Nome</label><input class="f" id="k_name" value="${esc(c.name)}" placeholder="ex: Última chance Black Friday">
     <label class="l">Tipo</label><select class="f" id="k_type">${CTYPES.map(t=>`<option ${c.type===t?"selected":""}>${t}</option>`).join("")}</select>
     <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Início</label><input class="f" type="date" id="k_start" value="${esc(c.start||"")}"></div><div style="flex:1"><label class="l">Fim</label><input class="f" type="date" id="k_end" value="${esc(c.end||"")}"></div></div>
-    <label class="l">Custo total (MT)</label><input class="f" id="k_cost" inputmode="numeric" value="${c.cost||""}" placeholder="quanto pagaste no anúncio (0 se grátis)">
+    <input type="hidden" id="k_cost" value="${c.cost||0}">
     <label class="l">Mensagem WhatsApp (usa {nome} para o nome do cliente)</label><textarea class="f" id="k_message" rows="4" placeholder="Olá {nome}! 🖤 ...">${esc(c.message||"")}</textarea>
     <label class="l">Notas</label><input class="f" id="k_notes" value="${esc(c.notes||"")}">
     ${c.id?`<label class="row small" style="gap:8px;margin-top:12px"><input type="checkbox" id="k_active" ${c.active?"checked":""}> Ativa (aparece na venda em “Veio de onde?”)</label>`:""}

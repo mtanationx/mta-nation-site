@@ -451,7 +451,10 @@ export async function onRequest(ctx) {
     const till = (await db.prepare(`SELECT e.id,e.day,e.type,e.amount,e.notes, u.name AS by_name FROM expenses e LEFT JOIN users u ON u.id=e.user_id WHERE e.day BETWEEN ? AND ? ORDER BY e.day DESC`).bind(a, b).all()).results;
     const sales = await db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(subtotal),0) products, COALESCE(SUM(delivery),0) delivery FROM sales WHERE void=0 AND day BETWEEN ? AND ?`).bind(a, b).first();
     const comm = (await db.prepare(`SELECT u.name, u.commission pct, SUM(s.subtotal) total FROM sales s JOIN users u ON u.id=s.user_id WHERE s.void=0 AND s.day BETWEEN ? AND ? AND u.commission>0 GROUP BY u.id`).bind(a, b).all()).results;
-    return json({ month: mo, rows, till, sales, commissions: comm.map(c => ({ ...c, value: Math.round(c.total * c.pct / 100) })) });
+    // Logística: pagamento da encomenda conta no mês da encomenda; levantamento no mês da chegada
+    const logOrders = (await db.prepare(`SELECT id,name,order_day day,mzn amount,via,brand FROM logistics WHERE mzn>0 AND order_day BETWEEN ? AND ? ORDER BY order_day DESC`).bind(a, b).all()).results;
+    const logPickups = (await db.prepare(`SELECT id,name,COALESCE(NULLIF(arrival_day,''),order_day) day,pickup amount,via,brand FROM logistics WHERE pickup>0 AND COALESCE(NULLIF(arrival_day,''),order_day) BETWEEN ? AND ? ORDER BY day DESC`).bind(a, b).all()).results;
+    return json({ month: mo, rows, till, logOrders, logPickups, sales, commissions: comm.map(c => ({ ...c, value: Math.round(c.total * c.pct / 100) })) });
   }
   const GF = ["day", "description", "category", "method", "paid_by", "notes"];
   async function saveReceipt(id, data) {

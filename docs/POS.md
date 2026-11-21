@@ -9,7 +9,8 @@ Sistema de vendas da loja (Glória Mall) em **mz.mtanation.com/pos**.
 - O site do catálogo lê o stock em `/api/stock` (CSV no mesmo formato da Google Sheet antiga).
 
 ## Regras
-- Login por PIN (4–8 dígitos, único por pessoa). Admin: relatórios, equipa, stock, anular vendas, apagar despesas.
+- Login por PIN (4–8 dígitos, único por pessoa). Funções: Vendedor; Gerente (caixa/recolhas, anular vendas, apagar despesas); Admin (tudo: stock, relatórios, equipa).
+- Caixa: saldo = vendas cash (+transporte) − despesas pagas com cash − recolhas ± ajustes. Na recolha, a diferença contado−esperado vira ajuste automático. A recolha gera mensagem para o grupo de WhatsApp.
 - Cada venda baixa o stock da variante (produto · cor · tamanho) se essa linha tiver número. Anular devolve o stock.
 - Preço por defeito = tabela − desconto da promoção do site (público; VIP com a caixa "Cliente VIP"). Conjuntos sem desconto. O preço pode ser alterado em cada linha.
 - Fecho: produtos, transporte, despesas, comissão (% por pessoa, sobre produtos sem transporte), totais por pagamento e por local.

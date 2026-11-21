@@ -140,6 +140,7 @@ const fmt=n=>(Math.round(n||0)).toString().replace(/\B(?=(\d{3})+(?!\d))/g,".")+
 const COR={ouro:"Dourado",prata:"Prateado","-":""};
 const CORS={ouro:"D",prata:"P"};
 const PAYS=["Cash","POS","M-Pesa","e-Mola","BIM","BCI","Transferência","Outro"];
+const ROLES={seller:"Vendedor",manager:"Gerente",admin:"Admin"};
 const EXP_TYPES=["Portador diário","Internet (dados)","Yango","Outros"];
 function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("on"),2600);}
 const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
@@ -182,12 +183,13 @@ function render(){
   if(!S.token){ return renderLogin(app); }
   if(!S.user){ app.innerHTML=`<div class="login"><div class="lbox"><p>A carregar…</p></div></div>`; boot().then(render).catch(e=>{toast(e.message)}); return; }
   const admin=S.user.role==="admin";
-  const tabs=[["vender","Vender"],["fecho","Fecho"],["stock","Stock"]].concat(admin?[["relatorio","Relatório"],["equipa","Equipa"]]:[]);
+  const mgr=admin||S.user.role==="manager";
+  const tabs=[["vender","Vender"],["fecho","Fecho"]].concat(mgr?[["caixa","Caixa"]]:[],[["stock","Stock"]],admin?[["relatorio","Relatório"],["equipa","Equipa"]]:[]);
   app.innerHTML=`<div class="top"><span class="lg">MTA POS</span><div class="nav">${tabs.map(([k,l])=>`<button data-tab="${k}" class="${S.tab===k?"on":""}">${l}</button>`).join("")}</div>
     <div class="who"><span>${esc(S.user.name)}</span><button id="out">Sair</button></div></div><div id="view"></div>`;
   $$("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;render();});
   $("#out").onclick=async()=>{try{await api("/logout",{method:"POST"})}catch(e){} S.token=null;S.user=null;LS.set("posTok",null);render();};
-  ({vender:vVender,fecho:vFecho,stock:vStock,relatorio:vRel,equipa:vEquipa})[S.tab]($("#view"));
+  ({vender:vVender,fecho:vFecho,caixa:vCaixa,stock:vStock,relatorio:vRel,equipa:vEquipa})[S.tab]($("#view"));
 }
 
 /* ----- login ----- */
@@ -286,7 +288,7 @@ function drawCart(){
 }
 function confirmBox(t){ return window.confirm(t); }
 function checkout(){
-  const admin=S.user.role==="admin";
+  const admin=S.user.role==="admin"||S.user.role==="manager";
   const sub=S.cart.reduce((a,i)=>a+i.unit_price*i.qty,0);
   const f={channel:"Loja",payment:"",delivery:0,customer:"",phone:"",notes:"",user_id:S.user.id};
   const m=document.createElement("div"); m.className="mod";
@@ -329,11 +331,11 @@ function done(m,s){
 
 /* ----- fecho ----- */
 async function vFecho(v){
-  const admin=S.user.role==="admin";
+  const admin=S.user.role==="admin"||S.user.role==="manager";
   v.innerHTML=`<div class="wrap"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><h2 style="margin:0;font-size:18px">Fecho do dia</h2>
     <div class="row"><input type="date" class="f" id="dd" value="${S.day}" max="${S.today}" style="width:auto"><button class="btn sec" id="sh">Partilhar</button></div></div><div id="fb"><p class="empty">A carregar…</p></div></div>`;
   $("#dd").onchange=e=>{S.day=e.target.value;vFecho(v);};
-  let d; try{ d=await api("/sales?day="+S.day); }catch(e){ $("#fb").innerHTML=`<p class="empty">${esc(e.message)}</p>`; return; }
+  let d,cx=null; try{ [d,cx]=await Promise.all([api("/sales?day="+S.day),api("/cash").catch(()=>null)]); }catch(e){ $("#fb").innerHTML=`<p class="empty">${esc(e.message)}</p>`; return; }
   const ok=d.sales.filter(s=>!s.void);
   const prod=ok.reduce((a,s)=>a+s.subtotal,0), del=ok.reduce((a,s)=>a+s.delivery,0), exp=d.expenses.reduce((a,e)=>a+e.amount,0);
   const byPay={}; ok.forEach(s=>byPay[s.payment]=(byPay[s.payment]||0)+s.subtotal+s.delivery);
@@ -346,7 +348,7 @@ async function vFecho(v){
       <div class="kpi"><small>Transporte</small><b>${fmt(del)}</b></div>
       <div class="kpi"><small>Total geral</small><b>${fmt(prod+del)}</b></div>
       <div class="kpi"><small>Despesas</small><b>${fmt(exp)}</b></div>
-      <div class="kpi"><small>Cash recebido</small><b>${fmt(cash)}</b><div class="small muted">Cash − despesas: ${fmt(cash-exp)}</div></div></div>
+      <div class="kpi"><small>Cash recebido hoje</small><b>${fmt(cash)}</b></div>${cx?`<div class="kpi" style="border-color:var(--ink)"><small>Cash na loja agora</small><b>${fmt(cx.balance)}</b><div class="small muted">${cx.last?`desde a recolha de ${esc(cx.last.by_name||"")} (${dmy(cx.last.day)} ${hm(cx.last.ts)})`:"ainda sem recolhas"}</div></div>`:""}</div>
     <div class="card"><div class="sec-h" style="margin-top:0"><h3 class="mont">COMISSÕES</h3><span class="small muted">sobre vendas sem transporte</span></div>
       <table class="t"><tr><th>Vendedor</th><th>Vendas</th><th>Total</th><th>%</th><th>Comissão</th></tr>${Object.entries(bySeller).map(([n,b])=>`<tr><td>${esc(n)}</td><td>${b.n}</td><td class="fmt">${fmt(b.total)}</td><td>${b.pct}%</td><td class="fmt"><b>${fmt(b.total*b.pct/100)}</b></td></tr>`).join("")||`<tr><td colspan="5" class="muted">Sem vendas.</td></tr>`}</table>
       <div class="sec-h"><h3 class="mont">POR MEIO DE PAGAMENTO</h3></div>
@@ -358,12 +360,53 @@ async function vFecho(v){
       ${d.sales.map((s,k)=>`<tr class="${s.void?"void":""}"><td>${k+1}</td><td>${hm(s.ts)}</td><td>${s.items.map(i=>esc((i.qty>1?i.qty+"x ":"")+itemLabel(i))).join("<br>")}</td><td class="fmt">${fmt(s.subtotal)}</td><td class="fmt">${s.delivery?fmt(s.delivery):"—"}</td><td><span class="tag">${esc(s.payment)}</span></td><td>${esc(s.channel)}</td><td>${esc(s.seller)}</td><td class="small">${esc(s.customer||"")}${s.phone?`<br>${esc(s.phone)}`:""}${s.notes?`<br><i>${esc(s.notes)}</i>`:""}${s.void?`<br><b>ANULADA</b> ${esc(s.void_reason||"")}`:""}</td>${admin?`<td>${s.void?"":`<button class="chip" data-void="${s.id}">Anular</button>`}</td>`:""}</tr>`).join("")||`<tr><td colspan="10" class="muted">Ainda não há vendas neste dia.</td></tr>`}</table></div>
     <div class="sec-h"><h3 class="mont">DESPESAS</h3></div>
     <div class="card"><table class="t">${d.expenses.map(e=>`<tr><td>${esc(e.type)}</td><td class="fmt">${fmt(e.amount)}</td><td class="small muted">${esc(e.notes||"")} · ${esc(e.by_name||"")}</td>${admin?`<td><button class="chip" data-del="${e.id}">Apagar</button></td>`:""}</tr>`).join("")||`<tr><td class="muted">Sem despesas.</td></tr>`}</table>
-      ${S.day===S.today||admin?`<div class="row" style="margin-top:10px;flex-wrap:wrap"><select class="f" id="et" style="flex:1;min-width:140px">${EXP_TYPES.map(t=>`<option>${t}</option>`).join("")}</select><input class="f" id="ea" inputmode="numeric" placeholder="Valor MT" style="flex:1;min-width:100px"><input class="f" id="en" placeholder="Nota (opcional)" style="flex:2;min-width:140px"><button class="btn" id="eb">Adicionar</button></div>`:""}</div>`;
+      ${S.day===S.today||admin?`<div class="row" style="margin-top:10px;flex-wrap:wrap"><select class="f" id="et" style="flex:1;min-width:140px">${EXP_TYPES.map(t=>`<option>${t}</option>`).join("")}</select><input class="f" id="ea" inputmode="numeric" placeholder="Valor MT" style="flex:1;min-width:100px"><input class="f" id="en" placeholder="Nota (opcional)" style="flex:2;min-width:140px"><label class="row small" style="gap:6px"><input type="checkbox" id="ec" checked> Pago com o cash da loja</label><button class="btn" id="eb">Adicionar</button></div>`:""}</div>`;
   $$("[data-void]").forEach(b=>b.onclick=async()=>{ const r=prompt("Motivo da anulação (o stock volta a entrar):"); if(r==null) return; try{ await api(`/sales/${b.dataset.void}/void`,{method:"POST",body:{reason:r}}); await boot(); toast("Venda anulada"); vFecho(v);}catch(e){toast(e.message);} });
   $$("[data-del]").forEach(b=>b.onclick=async()=>{ if(!confirmBox("Apagar esta despesa?")) return; try{ await api(`/expenses/${b.dataset.del}`,{method:"DELETE"}); vFecho(v);}catch(e){toast(e.message);} });
-  const eb=$("#eb"); if(eb) eb.onclick=async()=>{ try{ await api("/expenses",{method:"POST",body:{day:S.day,type:$("#et").value,amount:+$("#ea").value.replace(/\D/g,""),notes:$("#en").value}}); toast("Despesa registada"); vFecho(v);}catch(e){toast(e.message);} };
-  $("#sh").onclick=()=>{ const F=S.fecho; const t=`*Fecho MTA Nation — ${dmy(S.day)}*\n\nVendas (produtos): ${fmt(F.prod)} (${ok.length} vendas)\nTransporte: ${fmt(F.del)}\nTotal geral: ${fmt(F.prod+F.del)}\nDespesas: ${fmt(F.exp)}\nCash recebido: ${fmt(F.cash)}\n\n*Pagamentos*\n${Object.entries(F.byPay).map(([k,val])=>`${k}: ${fmt(val)}`).join("\n")}\n\n*Comissões*\n${Object.entries(F.bySeller).filter(([n,b])=>b.pct).map(([n,b])=>`${n}: ${fmt(b.total*b.pct/100)}`).join("\n")||"—"}`;
+  const eb=$("#eb"); if(eb) eb.onclick=async()=>{ try{ await api("/expenses",{method:"POST",body:{day:S.day,type:$("#et").value,amount:+$("#ea").value.replace(/\D/g,""),notes:$("#en").value,paid_cash:$("#ec").checked?1:0}}); toast("Despesa registada"); vFecho(v);}catch(e){toast(e.message);} };
+  $("#sh").onclick=()=>{ const F=S.fecho; const t=`*Fecho MTA Nation — ${dmy(S.day)}*\n\nVendas (produtos): ${fmt(F.prod)} (${ok.length} vendas)\nTransporte: ${fmt(F.del)}\nTotal geral: ${fmt(F.prod+F.del)}\nDespesas: ${fmt(F.exp)}\nCash recebido hoje: ${fmt(F.cash)}\n${cx?`Cash na loja agora: ${fmt(cx.balance)}\n`:""}\n*Pagamentos*\n${Object.entries(F.byPay).map(([k,val])=>`${k}: ${fmt(val)}`).join("\n")}\n\n*Comissões*\n${Object.entries(F.bySeller).filter(([n,b])=>b.pct).map(([n,b])=>`${n}: ${fmt(b.total*b.pct/100)}`).join("\n")||"—"}`;
     window.open("https://wa.me/?text="+encodeURIComponent(t),"_blank"); };
+}
+
+/* ----- caixa ----- */
+async function vCaixa(v){
+  v.innerHTML=`<div class="wrap"><h2 style="margin:0 0 12px;font-size:18px">Caixa</h2><div id="cb"><p class="empty">A carregar…</p></div></div>`;
+  let c; try{ c=await api("/cash"); }catch(e){ $("#cb").innerHTML=`<p class="empty">${esc(e.message)}</p>`; return; }
+  const sIn=c.sales.reduce((a,x)=>a+x.subtotal+x.delivery,0), sOut=c.expenses.reduce((a,x)=>a+x.amount,0);
+  const desde=c.last?`${dmy(c.last.day)} às ${hm(c.last.ts)} (${esc(c.last.by_name||"")})`:"o início";
+  $("#cb").innerHTML=`<div class="card" style="text-align:center;padding:22px"><div class="muted small" style="letter-spacing:.1em;text-transform:uppercase;font-weight:700">Cash na loja agora</div>
+      <div style="font-size:38px;font-weight:800;margin:6px 0">${fmt(c.balance)}</div><div class="small muted">Desde a última recolha: ${desde}</div>
+      <button class="btn grn" id="rc" style="margin-top:14px;width:100%;max-width:360px" ${c.balance>0?"":"disabled"}>Registar recolha de cash</button></div>
+    <div class="sec-h"><h3 class="mont">DESDE A ÚLTIMA RECOLHA</h3></div>
+    <div class="card"><table class="t"><tr><th>Quando</th><th>Movimento</th><th>Valor</th></tr>
+      ${c.sales.map(x=>`<tr><td class="small">${dmy(x.day)} ${hm(x.ts)}</td><td>Venda cash · ${esc(x.seller)}${x.customer?` · ${esc(x.customer)}`:""}</td><td class="fmt" style="color:var(--grn)">+ ${fmt(x.subtotal+x.delivery)}</td></tr>`).join("")}
+      ${c.expenses.map(x=>`<tr><td class="small">${dmy(x.day)} ${hm(x.ts)}</td><td>Despesa: ${esc(x.type)}${x.notes?` · ${esc(x.notes)}`:""}</td><td class="fmt" style="color:var(--red)">− ${fmt(x.amount)}</td></tr>`).join("")}
+      ${!c.sales.length&&!c.expenses.length?`<tr><td colspan="3" class="muted">Sem movimentos.</td></tr>`:""}
+      <tr><td></td><td><b>Vendas cash ${fmt(sIn)} − despesas ${fmt(sOut)}</b></td><td></td></tr></table></div>
+    <div class="sec-h"><h3 class="mont">HISTÓRICO DE RECOLHAS</h3></div>
+    <div class="card"><table class="t"><tr><th>Data</th><th>Por</th><th>Recolhido</th><th>Contado</th><th>Diferença</th></tr>
+      ${c.moves.filter(x=>x.type==="recolha").map(x=>{const dif=x.counted!=null&&x.expected!=null?x.counted-x.expected:null;return `<tr><td class="small">${dmy(x.day)} ${hm(x.ts)}</td><td>${esc(x.by_name||"")}</td><td class="fmt">${fmt(x.amount)}</td><td class="fmt">${x.counted!=null?fmt(x.counted):"—"}</td><td class="fmt" style="color:${dif?"var(--red)":"inherit"}">${dif==null?"—":(dif>0?"+":"")+fmt(dif)}</td></tr>`;}).join("")||`<tr><td colspan="5" class="muted">Ainda sem recolhas.</td></tr>`}</table></div>`;
+  $("#rc").onclick=()=>{ const m=document.createElement("div"); m.className="mod";
+    m.innerHTML=`<div class="mbox"><div class="row" style="justify-content:space-between"><h2>Recolha de cash</h2><button class="qbtn" data-x>✕</button></div>
+      <p class="muted small">O sistema diz que devem estar <b>${fmt(c.balance)}</b> na caixa. Conta o dinheiro e escreve o valor real.</p>
+      <label class="l">Valor contado na caixa</label><input class="f" id="ct" inputmode="numeric" value="${c.balance}">
+      <p class="small" id="df"></p>
+      <label class="l">Valor recolhido</label><input class="f" id="am" inputmode="numeric" value="${c.balance}">
+      <p class="small muted">Se deixares troco na caixa, recolhe menos: o resto fica como saldo.</p>
+      <label class="l">Nota</label><input class="f" id="nt" placeholder="opcional">
+      <button class="btn grn" id="ok" style="width:100%;margin-top:14px">Confirmar e enviar para o grupo</button></div>`;
+    const upd=()=>{ const ct=+$("#ct",m).value.replace(/\D/g,""), d=ct-c.balance; $("#df",m).innerHTML=d===0?`<span style="color:var(--grn);font-weight:600">✓ Bate certo</span>`:`<span style="color:var(--red);font-weight:600">Diferença: ${d>0?"+":""}${fmt(d)}</span>`; };
+    $("#ct",m).oninput=()=>{ upd(); $("#am",m).value=$("#ct",m).value; }; upd();
+    $("[data-x]",m).onclick=()=>m.remove(); m.onclick=e=>{if(e.target===m)m.remove();};
+    $("#ok",m).onclick=async()=>{ const counted=+$("#ct",m).value.replace(/\D/g,""), amount=+$("#am",m).value.replace(/\D/g,""), notes=$("#nt",m).value;
+      if(!(amount>0)){toast("Valor inválido");return;}
+      const w=window.open("","_blank");
+      try{ await api("/cash",{method:"POST",body:{type:"recolha",amount,counted,expected:c.balance,notes}});
+        const d=counted-c.balance;
+        const t=`*Recolha de cash — MTA Nation*\n${dmy(S.today)} ${hm(Date.now())} · por ${S.user.name}\n\nPeríodo: desde ${c.last?`${dmy(c.last.day)} ${hm(c.last.ts)}`:"o início"}\nVendas em cash: ${fmt(sIn)} (${c.sales.length} vendas)\nDespesas pagas em cash: ${fmt(sOut)}${c.expenses.length?"\n"+c.expenses.map(x=>`  • ${x.type}: ${fmt(x.amount)}`).join("\n"):""}\n\nEsperado na caixa: ${fmt(c.balance)}\nContado: ${fmt(counted)}${d?` (diferença ${d>0?"+":""}${fmt(d)})`:" ✓"}\n*Recolhido: ${fmt(amount)}*${counted-amount>0?`\nFica na caixa: ${fmt(counted-amount)}`:""}${notes?`\nNota: ${notes}`:""}`;
+        if(w) w.location="https://wa.me/?text="+encodeURIComponent(t); m.remove(); toast("Recolha registada"); vCaixa(v);
+      }catch(e){ if(w) w.close(); toast(e.message); } };
+    document.body.appendChild(m); };
 }
 
 /* ----- stock ----- */
@@ -414,15 +457,15 @@ async function vRel(v){
 function vEquipa(v){
   v.innerHTML=`<div class="wrap"><h2 style="margin:0 0 12px;font-size:18px">Equipa</h2>
     <div class="card" style="overflow-x:auto"><table class="t"><tr><th>Nome</th><th>Função</th><th>Comissão</th><th>Estado</th><th></th></tr>
-    ${S.users.map(u=>`<tr><td><b>${esc(u.name)}</b></td><td>${u.role==="admin"?"Admin":"Vendedor"}</td><td>${u.commission}%</td><td>${u.active?"Ativo":"<span class='muted'>Inativo</span>"}</td><td><button class="chip" data-ed="${u.id}">Editar</button></td></tr>`).join("")}</table></div>
+    ${S.users.map(u=>`<tr><td><b>${esc(u.name)}</b></td><td>${ROLES[u.role]||u.role}</td><td>${u.commission}%</td><td>${u.active?"Ativo":"<span class='muted'>Inativo</span>"}</td><td><button class="chip" data-ed="${u.id}">Editar</button></td></tr>`).join("")}</table></div>
     <div class="sec-h"><h3 class="mont">ADICIONAR PESSOA</h3></div>
-    <div class="card"><div class="row" style="flex-wrap:wrap;gap:10px"><input class="f" id="nn" placeholder="Nome" style="flex:2;min-width:140px"><input class="f" id="np" placeholder="PIN (4–8 dígitos)" inputmode="numeric" style="flex:1;min-width:120px"><input class="f" id="nc" placeholder="Comissão %" inputmode="decimal" value="3" style="flex:1;min-width:100px"><select class="f" id="nr" style="flex:1;min-width:120px"><option value="seller">Vendedor</option><option value="admin">Admin</option></select><button class="btn" id="nb">Adicionar</button></div>
-    <p class="small muted">Cada pessoa entra com o seu PIN. A venda fica registada em nome de quem está ligado. Só admins veem relatórios, anulam vendas e alteram stock.</p></div></div>`;
+    <div class="card"><div class="row" style="flex-wrap:wrap;gap:10px"><input class="f" id="nn" placeholder="Nome" style="flex:2;min-width:140px"><input class="f" id="np" placeholder="PIN (4–8 dígitos)" inputmode="numeric" style="flex:1;min-width:120px"><input class="f" id="nc" placeholder="Comissão %" inputmode="decimal" value="3" style="flex:1;min-width:100px"><select class="f" id="nr" style="flex:1;min-width:120px">${Object.entries(ROLES).map(([k,l])=>`<option value="${k}">${l}</option>`).join("")}</select><button class="btn" id="nb">Adicionar</button></div>
+    <p class="small muted">Cada pessoa entra com o seu PIN. A venda fica registada em nome de quem está ligado. Gerente: controla a caixa (recolhas de cash), anula vendas e apaga despesas. Admin: tudo, incluindo stock, relatórios e equipa.</p></div></div>`;
   $("#nb").onclick=async()=>{ try{ await api("/users",{method:"POST",body:{name:$("#nn").value,pin:$("#np").value,commission:+$("#nc").value.replace(",","."),role:$("#nr").value}}); await boot(); toast("Pessoa adicionada"); vEquipa(v);}catch(e){toast(e.message);} };
   $$("[data-ed]").forEach(b=>b.onclick=()=>{ const u=S.users.find(x=>x.id===+b.dataset.ed); const m=document.createElement("div"); m.className="mod";
     m.innerHTML=`<div class="mbox"><div class="row" style="justify-content:space-between"><h2>${esc(u.name)}</h2><button class="qbtn" data-x>✕</button></div>
       <label class="l">Nome</label><input class="f" id="un" value="${esc(u.name)}"><label class="l">Novo PIN (deixa vazio para manter)</label><input class="f" id="up" inputmode="numeric">
-      <label class="l">Comissão %</label><input class="f" id="uc" value="${u.commission}" inputmode="decimal"><label class="l">Função</label><select class="f" id="ur"><option value="seller" ${u.role==="seller"?"selected":""}>Vendedor</option><option value="admin" ${u.role==="admin"?"selected":""}>Admin</option></select>
+      <label class="l">Comissão %</label><input class="f" id="uc" value="${u.commission}" inputmode="decimal"><label class="l">Função</label><select class="f" id="ur">${Object.entries(ROLES).map(([k,l])=>`<option value="${k}" ${u.role===k?"selected":""}>${l}</option>`).join("")}</select>
       <label class="l">Estado</label><select class="f" id="ua"><option value="1" ${u.active?"selected":""}>Ativo</option><option value="0" ${u.active?"":"selected"}>Inativo (não consegue entrar)</option></select>
       <button class="btn" id="usv" style="width:100%;margin-top:14px">Guardar</button></div>`;
     $("[data-x]",m).onclick=()=>m.remove(); m.onclick=e=>{if(e.target===m)m.remove();};

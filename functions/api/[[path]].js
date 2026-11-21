@@ -13,11 +13,13 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS expenses(id INTEGER PRIMARY KEY AUTOINCREMENT, day TEXT NOT NULL, type TEXT, amount INTEGER NOT NULL, notes TEXT, user_id INTEGER, ts INTEGER)`,
   `CREATE TABLE IF NOT EXISTS stock_log(id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, user_id INTEGER, product_id TEXT, cor TEXT, size TEXT, before INTEGER, after INTEGER, reason TEXT)`,
   `CREATE TABLE IF NOT EXISTS settings(k TEXT PRIMARY KEY, v TEXT)`,
+  `CREATE TABLE IF NOT EXISTS cash_moves(id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, day TEXT, type TEXT NOT NULL, amount INTEGER NOT NULL, counted INTEGER, expected INTEGER, user_id INTEGER, notes TEXT)`,
 ];
 let ready = false;
 async function init(db) {
   if (ready) return;
   await db.batch(SCHEMA.map(s => db.prepare(s)));
+  try { await db.prepare(`ALTER TABLE expenses ADD COLUMN paid_cash INTEGER NOT NULL DEFAULT 1`).run(); } catch (e) { /* já existe */ }
   ready = true;
 }
 
@@ -124,6 +126,7 @@ export async function onRequest(ctx) {
   const user = await auth(req, db);
   if (!user) return err("Sessão expirada", 401);
   const admin = user.role === "admin";
+  const mgr = admin || user.role === "manager";
 
   if (path === "/logout" && m === "POST") {
     const t = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
@@ -144,11 +147,11 @@ export async function onRequest(ctx) {
     for (const i of items) { if (!i.product_id || !(i.qty > 0) || !(i.unit_price >= 0)) return err("Artigo inválido"); }
     let sellerId = user.id;
     if (body.user_id && body.user_id !== user.id) {
-      if (!admin) return err("Só o admin pode registar em nome de outro vendedor", 403);
+      if (!mgr) return err("Só a gerência pode registar em nome de outro vendedor", 403);
       sellerId = +body.user_id;
     }
     const subtotal = items.reduce((a, i) => a + Math.round(i.unit_price) * Math.round(i.qty), 0);
-    const day = admin && /^\d{4}-\d{2}-\d{2}$/.test(body.day || "") ? body.day : today();
+    const day = mgr && /^\d{4}-\d{2}-\d{2}$/.test(body.day || "") ? body.day : today();
     const r = await db.prepare(`INSERT INTO sales(day,ts,user_id,channel,payment,delivery,subtotal,customer,phone,notes) VALUES(?,?,?,?,?,?,?,?,?,?)`)
       .bind(day, Date.now(), sellerId, body.channel || "Loja", body.payment || "", Math.round(+body.delivery || 0), subtotal, (body.customer || "").slice(0, 80), (body.phone || "").slice(0, 30), (body.notes || "").slice(0, 300)).run();
     const saleId = r.meta.last_row_id;
@@ -166,7 +169,7 @@ export async function onRequest(ctx) {
   }
   const voidM = path.match(/^\/sales\/(\d+)\/void$/);
   if (voidM && m === "POST") {
-    if (!admin) return err("Só o admin pode anular vendas", 403);
+    if (!mgr) return err("Só a gerência pode anular vendas", 403);
     const s = (await saleDetail(db, "s.id=?", [+voidM[1]]))[0];
     if (!s) return err("Venda não encontrada", 404);
     if (s.void) return err("Já anulada");
@@ -179,13 +182,13 @@ export async function onRequest(ctx) {
   if (path === "/expenses" && m === "POST") {
     const amount = Math.round(+body.amount || 0);
     if (!(amount > 0)) return err("Valor inválido");
-    const day = admin && /^\d{4}-\d{2}-\d{2}$/.test(body.day || "") ? body.day : today();
-    await db.prepare(`INSERT INTO expenses(day,type,amount,notes,user_id,ts) VALUES(?,?,?,?,?,?)`).bind(day, (body.type || "Outros").slice(0, 60), amount, (body.notes || "").slice(0, 200), user.id, Date.now()).run();
+    const day = mgr && /^\d{4}-\d{2}-\d{2}$/.test(body.day || "") ? body.day : today();
+    await db.prepare(`INSERT INTO expenses(day,type,amount,notes,user_id,ts,paid_cash) VALUES(?,?,?,?,?,?,?)`).bind(day, (body.type || "Outros").slice(0, 60), amount, (body.notes || "").slice(0, 200), user.id, Date.now(), body.paid_cash === 0 ? 0 : 1).run();
     return json({ ok: true });
   }
   const expDel = path.match(/^\/expenses\/(\d+)$/);
   if (expDel && m === "DELETE") {
-    if (!admin) return err("Só o admin pode apagar despesas", 403);
+    if (!mgr) return err("Só a gerência pode apagar despesas", 403);
     await db.prepare(`DELETE FROM expenses WHERE id=?`).bind(+expDel[1]).run();
     return json({ ok: true });
   }
@@ -230,7 +233,7 @@ export async function onRequest(ctx) {
     const name = String(body.name || "").trim(), pin = String(body.pin || "");
     if (!name || !/^\d{4,8}$/.test(pin)) return err("Nome e PIN (4–8 dígitos) obrigatórios");
     try {
-      await db.prepare(`INSERT INTO users(name,pin_hash,role,commission,created) VALUES(?,?,?,?,?)`).bind(name, await sha(pin), body.role === "admin" ? "admin" : "seller", Math.max(0, +body.commission || 0), today()).run();
+      await db.prepare(`INSERT INTO users(name,pin_hash,role,commission,created) VALUES(?,?,?,?,?)`).bind(name, await sha(pin), (["admin","manager"].includes(body.role) ? body.role : "seller"), Math.max(0, +body.commission || 0), today()).run();
     } catch (e) { return err("Esse PIN já está a ser usado. Escolhe outro."); }
     return json({ ok: true });
   }
@@ -238,17 +241,45 @@ export async function onRequest(ctx) {
   if (uM && m === "PUT") {
     if (!admin) return err("Só o admin", 403);
     const id = +uM[1];
-    if (id === user.id && (body.active === 0 || body.role === "seller")) return err("Não podes desativar ou despromover a tua própria conta");
+    if (id === user.id && (body.active === 0 || (body.role && body.role !== "admin"))) return err("Não podes desativar ou despromover a tua própria conta");
     const sets = [], b = [];
     if (body.name) { sets.push("name=?"); b.push(String(body.name).trim()); }
     if (body.pin) { if (!/^\d{4,8}$/.test(body.pin)) return err("PIN 4–8 dígitos"); sets.push("pin_hash=?"); b.push(await sha(String(body.pin))); }
-    if (body.role) { sets.push("role=?"); b.push(body.role === "admin" ? "admin" : "seller"); }
+    if (body.role) { sets.push("role=?"); b.push((["admin","manager"].includes(body.role) ? body.role : "seller")); }
     if (body.commission != null) { sets.push("commission=?"); b.push(Math.max(0, +body.commission || 0)); }
     if (body.active != null) { sets.push("active=?"); b.push(body.active ? 1 : 0); }
     if (!sets.length) return err("Nada para alterar");
     try { await db.prepare(`UPDATE users SET ${sets.join(",")} WHERE id=?`).bind(...b, id).run(); }
     catch (e) { return err("Esse PIN já está a ser usado. Escolhe outro."); }
     if (body.active === 0 || body.pin) await db.prepare(`DELETE FROM sessions WHERE user_id=?`).bind(id).run();
+    return json({ ok: true });
+  }
+
+  // Caixa (cash na loja)
+  if (path === "/cash" && m === "GET") {
+    const last = await db.prepare(`SELECT c.*, u.name AS by_name FROM cash_moves c LEFT JOIN users u ON u.id=c.user_id WHERE c.type='recolha' ORDER BY c.id DESC LIMIT 1`).first();
+    const since = last ? last.ts : 0;
+    const inn = await db.prepare(`SELECT COALESCE(SUM(subtotal+delivery),0) t, COUNT(*) n FROM sales WHERE void=0 AND payment='Cash'`).first();
+    const exp = await db.prepare(`SELECT COALESCE(SUM(amount),0) t FROM expenses WHERE paid_cash=1`).first();
+    const mv = await db.prepare(`SELECT COALESCE(SUM(CASE WHEN type='recolha' THEN -amount ELSE amount END),0) t FROM cash_moves`).first();
+    const balance = inn.t - exp.t + mv.t;
+    const sales = (await db.prepare(`SELECT s.id,s.day,s.ts,s.subtotal,s.delivery,s.customer,u.name AS seller FROM sales s JOIN users u ON u.id=s.user_id WHERE s.void=0 AND s.payment='Cash' AND s.ts>? ORDER BY s.id`).bind(since).all()).results;
+    const expenses = (await db.prepare(`SELECT e.id,e.day,e.ts,e.type,e.amount,e.notes,u.name AS by_name FROM expenses e LEFT JOIN users u ON u.id=e.user_id WHERE e.paid_cash=1 AND e.ts>? ORDER BY e.id`).bind(since).all()).results;
+    const moves = (await db.prepare(`SELECT c.*, u.name AS by_name FROM cash_moves c LEFT JOIN users u ON u.id=c.user_id ORDER BY c.id DESC LIMIT 30`).all()).results;
+    return json({ balance, since, last, sales, expenses, moves });
+  }
+  if (path === "/cash" && m === "POST") {
+    const type = ["recolha", "ajuste", "abertura"].includes(body.type) ? body.type : "recolha";
+    if (!mgr) return err("Só a gerência pode registar movimentos de caixa", 403);
+    const amount = Math.round(+body.amount || 0);
+    if (type !== "ajuste" && !(amount > 0)) return err("Valor inválido");
+    await db.prepare(`INSERT INTO cash_moves(ts,day,type,amount,counted,expected,user_id,notes) VALUES(?,?,?,?,?,?,?,?)`)
+      .bind(Date.now(), today(), type, amount, body.counted === "" || body.counted == null ? null : Math.round(+body.counted), body.expected == null ? null : Math.round(+body.expected), user.id, (body.notes || "").slice(0, 200)).run();
+    // Diferença entre contado e esperado vira ajuste, para o saldo bater com a realidade
+    if (type === "recolha" && body.counted != null && body.counted !== "" && body.expected != null) {
+      const dif = Math.round(+body.counted) - Math.round(+body.expected);
+      if (dif) await db.prepare(`INSERT INTO cash_moves(ts,day,type,amount,user_id,notes) VALUES(?,?,?,?,?,?)`).bind(Date.now() - 1, today(), "ajuste", dif, user.id, "diferença na contagem").run();
+    }
     return json({ ok: true });
   }
 

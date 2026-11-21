@@ -142,7 +142,7 @@ const CORS={ouro:"D",prata:"P"};
 const PAYS=["Cash","POS","M-Pesa","e-Mola","BIM","BCI","Transferência","Outro"];
 const SOURCES=["Anúncio Instagram/Facebook","Cliente habitual","Passou na loja","Recomendação","Instagram (sem anúncio)","Outro"];
 const CTYPES=["Mensagem a clientes (POS)","Lista de transmissão WhatsApp","Status WhatsApp"];
-const GCATS=["Renda / Glória Mall","Salários e comissões","Stock e fornecedores","Marketing e anúncios","Embalagens","Internet e telefone","Transporte","Outros"];
+const GCATS=["Renda / Glória Mall","Salários e comissões","Marketing e anúncios","Embalagens","Internet e telefone","Transporte","Outros"];
 const GPAY=["Cash","Transferência","M-Pesa","e-Mola","Cartão","Outro"];
 const LSTAT=["Por receber","Em trânsito","Chegou (por levantar)","Recebido"];
 const LBRAND=["MTA","Magnolia","Alekso","Loja","Pessoal"];
@@ -533,7 +533,7 @@ function gastoModal(g,after){
   let receipt=null;
   const m=document.createElement("div"); m.className="mod";
   m.innerHTML=`<div class="mbox"><div class="row" style="justify-content:space-between"><h2>${isNew?"Novo giving":"Editar giving"}</h2><button class="qbtn" data-x>✕</button></div>
-    <label class="l">Descrição</label><input class="f" id="g_description" value="${esc(g.description)}" placeholder="ex: Renda dezembro, Salário Beatriz, Encomenda FOKSY">
+    <label class="l">Descrição</label><input class="f" id="g_description" value="${esc(g.description)}" placeholder="ex: Renda dezembro, Salário Beatriz, Internet">
     <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Valor (MT)</label><input class="f" id="g_amount" inputmode="numeric" value="${g.amount}"></div><div style="flex:1"><label class="l">Data</label><input class="f" type="date" id="g_day" value="${esc(g.day)}"></div></div>
     <label class="l">Categoria</label><div class="opts" id="gcat">${GCATS.map(c=>`<button class="opt ${g.category===c?"on":""}" data-cat="${esc(c)}">${esc(c)}</button>`).join("")}</div>
     <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Pago com</label><select class="f" id="g_method">${GPAY.map(p=>`<option ${g.method===p?"selected":""}>${p}</option>`).join("")}</select></div><div style="flex:1"><label class="l">Pago por</label><input class="f" id="g_paid_by" value="${esc(g.paid_by||"")}"></div></div>

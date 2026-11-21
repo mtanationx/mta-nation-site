@@ -971,7 +971,7 @@ function setOrder(){
       o.lastChild.textContent="Esgotado · Avisa-me quando chegar"; } else o.lastChild.textContent=price()==null?"Pedir preço pelo WhatsApp":"Encomendar pelo WhatsApp"; }
 }
 /* ===== Stock (Google Sheet publicada em CSV) ===== */
-const STOCK_URL="";   // link CSV de "Publicar na Web"
+const STOCK_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vQaeK8QR0Hl9GQqk4Vd10bf8aZYNkBZ90YGSDx2cYAnVocdkwpX-2nOUqkZRA7weuCrnT7449mTXZwP/pub?gid=0&single=true&output=csv";   // link CSV de "Publicar na Web"
 const STOCK_LOW=5;
 let STK=null;
 function parseCSV(t){ const rows=[]; let row=[],f="",q=false;

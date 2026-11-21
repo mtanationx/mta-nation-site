@@ -23,13 +23,17 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS receipts(giving_id INTEGER PRIMARY KEY, data TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS logistics(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, order_day TEXT, arrival_day TEXT, status TEXT, via TEXT, usd REAL, mzn INTEGER, pickup INTEGER, supplier TEXT, brand TEXT, tracking TEXT, notes TEXT, has_file INTEGER NOT NULL DEFAULT 0, user_id INTEGER, ts INTEGER)`,
   `CREATE TABLE IF NOT EXISTS logistics_files(log_id INTEGER PRIMARY KEY, data TEXT NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS devices(token TEXT PRIMARY KEY, name TEXT, active INTEGER NOT NULL DEFAULT 1, created INTEGER, user_id INTEGER)`,
+  `CREATE TABLE IF NOT EXISTS schedules(user_id INTEGER NOT NULL, dow INTEGER NOT NULL, start TEXT, end TEXT, PRIMARY KEY(user_id,dow))`,
+  `CREATE TABLE IF NOT EXISTS shifts(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, day TEXT NOT NULL, in_ts INTEGER, out_ts INTEGER, edited_by INTEGER, note TEXT)`,
+  `CREATE INDEX IF NOT EXISTS shifts_day ON shifts(day)`,
   `CREATE TABLE IF NOT EXISTS cash_moves(id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, day TEXT, type TEXT NOT NULL, amount INTEGER NOT NULL, counted INTEGER, expected INTEGER, user_id INTEGER, notes TEXT)`,
 ];
 let ready = false;
 async function init(db) {
   if (ready) return;
   await db.batch(SCHEMA.map(s => db.prepare(s)));
-  for (const q of [`ALTER TABLE expenses ADD COLUMN paid_cash INTEGER NOT NULL DEFAULT 1`, `ALTER TABLE sales ADD COLUMN customer_id INTEGER`, `ALTER TABLE sales ADD COLUMN campaign_id INTEGER`, `ALTER TABLE sales ADD COLUMN source TEXT`, `ALTER TABLE logistics ADD COLUMN pay_method TEXT`, `ALTER TABLE logistics ADD COLUMN pickup_method TEXT`, `ALTER TABLE giving ADD COLUMN status TEXT NOT NULL DEFAULT 'Pago'`]) { try { await db.prepare(q).run(); } catch (e) { /* já existe */ } }
+  for (const q of [`ALTER TABLE expenses ADD COLUMN paid_cash INTEGER NOT NULL DEFAULT 1`, `ALTER TABLE sales ADD COLUMN customer_id INTEGER`, `ALTER TABLE sales ADD COLUMN campaign_id INTEGER`, `ALTER TABLE sales ADD COLUMN source TEXT`, `ALTER TABLE logistics ADD COLUMN pay_method TEXT`, `ALTER TABLE logistics ADD COLUMN pickup_method TEXT`, `ALTER TABLE giving ADD COLUMN status TEXT NOT NULL DEFAULT 'Pago'`, `ALTER TABLE users ADD COLUMN ot_rate INTEGER NOT NULL DEFAULT 0`]) { try { await db.prepare(q).run(); } catch (e) { /* já existe */ } }
   try { await db.prepare(`CREATE INDEX IF NOT EXISTS sales_cust ON sales(customer_id)`).run(); } catch (e) {}
   ready = true;
 }
@@ -53,6 +57,10 @@ async function upsertCustomer(db, { name, phone, source }) {
   return r.meta.last_row_id;
 }
 const CUST_STATS = `SELECT c.*, COUNT(s.id) n, COALESCE(SUM(s.subtotal),0) total, MAX(s.ts) last FROM customers c LEFT JOIN sales s ON s.customer_id=c.id AND s.void=0`;
+// Hora de Maputo
+const mzDay = ts => new Date(ts + 2 * 3600e3).toISOString().slice(0, 10);
+const mzMin = ts => { const d = new Date(ts + 2 * 3600e3); return d.getUTCHours() * 60 + d.getUTCMinutes(); };
+const hm2min = s => { const m = /^(\d{1,2}):(\d{2})$/.exec(s || ""); return m ? +m[1] * 60 + +m[2] : null; };
 const COR_LABEL = { ouro: "Dourado", prata: "Prateado", "-": "—" };
 
 async function auth(req, db) {
@@ -143,6 +151,30 @@ export async function onRequest(ctx) {
     return json({ token, user: u });
   }
 
+  // Ponto (clock in/out) — só a partir do dispositivo da loja
+  if (path === "/clock" && m === "POST") {
+    const dev = await db.prepare(`SELECT token,name FROM devices WHERE token=? AND active=1`).bind(String(body.device || "")).first();
+    if (!dev) return err("Este dispositivo não está autorizado a marcar ponto. Usa o tablet da loja.", 403);
+    const ip = req.headers.get("cf-connecting-ip") || "x", since = Date.now() - 15 * 60e3;
+    const fails = await db.prepare(`SELECT COUNT(*) AS n FROM login_fail WHERE ip=? AND ts>?`).bind(ip, since).first();
+    if (fails.n >= 10) return err("Demasiadas tentativas. Espera 15 minutos.", 429);
+    const u = await db.prepare(`SELECT id,name FROM users WHERE pin_hash=? AND active=1`).bind(await sha(String(body.pin || ""))).first();
+    if (!u) { await db.prepare(`INSERT INTO login_fail(ip,ts) VALUES(?,?)`).bind(ip, Date.now()).run(); return err("PIN incorreto", 401); }
+    const now = Date.now(), day = mzDay(now);
+    const open = await db.prepare(`SELECT id,in_ts FROM shifts WHERE user_id=? AND day=? AND out_ts IS NULL ORDER BY id DESC LIMIT 1`).bind(u.id, day).first();
+    const sch = await db.prepare(`SELECT start,end FROM schedules WHERE user_id=? AND dow=?`).bind(u.id, new Date(now + 2 * 3600e3).getUTCDay()).first();
+    const tol = +(((await db.prepare(`SELECT v FROM settings WHERE k='late_tolerance'`).first()) || {}).v ?? 10);
+    if (body.action === "status") return json({ name: u.name, open: !!open, in_ts: open ? open.in_ts : null });
+    if (open) {
+      await db.prepare(`UPDATE shifts SET out_ts=? WHERE id=?`).bind(now, open.id).run();
+      const end = sch ? hm2min(sch.end) : null, mins = Math.round((now - open.in_ts) / 60e3);
+      return json({ name: u.name, action: "saida", ts: now, worked: mins, extra: end != null ? Math.max(0, mzMin(now) - end) : null, early: end != null ? Math.max(0, end - mzMin(now)) : null });
+    }
+    await db.prepare(`INSERT INTO shifts(user_id,day,in_ts) VALUES(?,?,?)`).bind(u.id, day, now).run();
+    const start = sch ? hm2min(sch.start) : null, late = start != null ? mzMin(now) - start : null;
+    return json({ name: u.name, action: "entrada", ts: now, late: late != null && late > tol ? late : 0, scheduled: !!sch });
+  }
+
   // ---------- Autenticado ----------
   const user = await auth(req, db);
   if (!user) return err("Sessão expirada", 401);
@@ -156,7 +188,7 @@ export async function onRequest(ctx) {
   }
   if (path === "/boot" && m === "GET") {
     const stock = (await db.prepare(`SELECT product_id,cor,size,qty FROM stock`).all()).results;
-    const users = (await db.prepare(`SELECT id,name,role,commission,active FROM users ORDER BY id`).all()).results;
+    const users = (await db.prepare(`SELECT id,name,role,commission,active,ot_rate FROM users ORDER BY id`).all()).results;
     const settings = Object.fromEntries((await db.prepare(`SELECT k,v FROM settings`).all()).results.map(r => [r.k, r.v]));
     return json({ user, stock, users, settings, today: today() });
   }
@@ -589,6 +621,81 @@ export async function onRequest(ctx) {
     const r = await db.prepare(`SELECT data FROM logistics_files WHERE log_id=?`).bind(+lfM[1]).first();
     if (!r) return err("Sem anexo", 404);
     return json({ data: r.data });
+  }
+
+  // Dispositivo da loja
+  if (path === "/devices" && m === "GET") { if (!admin) return err("Só o admin", 403); return json({ rows: (await db.prepare(`SELECT substr(token,1,6) short,token,name,active,created FROM devices ORDER BY created DESC`).all()).results.map(r => ({ ...r, token: undefined })) }); }
+  if (path === "/devices" && m === "POST") {
+    if (!admin) return err("Só o admin pode autorizar dispositivos", 403);
+    const token = [...crypto.getRandomValues(new Uint8Array(24))].map(x => x.toString(16).padStart(2, "0")).join("");
+    await db.batch([db.prepare(`INSERT INTO devices(token,name,active,created,user_id) VALUES(?,?,1,?,?)`).bind(token, (body.name || "Tablet da loja").slice(0, 60), Date.now(), user.id), db.prepare(`INSERT INTO settings(k,v) VALUES('attendance_start',?) ON CONFLICT(k) DO NOTHING`).bind(today())]);
+    return json({ ok: true, token });
+  }
+  const dvM = path.match(/^\/devices\/([0-9a-f]{6})$/);
+  if (dvM && m === "DELETE") { if (!admin) return err("Só o admin", 403); await db.prepare(`UPDATE devices SET active=0 WHERE substr(token,1,6)=?`).bind(dvM[1]).run(); return json({ ok: true }); }
+
+  // Horários
+  const schM = path.match(/^\/users\/(\d+)\/schedule$/);
+  if (schM && m === "GET") { if (!mgr) return err("Só a gerência", 403); return json({ rows: (await db.prepare(`SELECT dow,start,end FROM schedules WHERE user_id=?`).bind(+schM[1]).all()).results }); }
+  if (schM && m === "PUT") {
+    if (!admin) return err("Só o admin pode alterar horários", 403);
+    const uid = +schM[1], st = [db.prepare(`DELETE FROM schedules WHERE user_id=?`).bind(uid)];
+    (body.rows || []).forEach(r => { if (hm2min(r.start) != null && hm2min(r.end) != null) st.push(db.prepare(`INSERT INTO schedules(user_id,dow,start,end) VALUES(?,?,?,?)`).bind(uid, +r.dow, r.start, r.end)); });
+    if (body.ot_rate != null) st.push(db.prepare(`UPDATE users SET ot_rate=? WHERE id=?`).bind(Math.max(0, Math.round(+body.ot_rate || 0)), uid));
+    await db.batch(st);
+    return json({ ok: true });
+  }
+
+  // Assiduidade (relatório mensal)
+  if (path === "/attendance" && m === "GET") {
+    if (!mgr) return err("Só a gerência", 403);
+    const mo = /^\d{4}-\d{2}$/.test(url.searchParams.get("month") || "") ? url.searchParams.get("month") : today().slice(0, 7);
+    const last = new Date(Date.UTC(+mo.slice(0, 4), +mo.slice(5, 7), 0)).getUTCDate();
+    const tol = +(((await db.prepare(`SELECT v FROM settings WHERE k='late_tolerance'`).first()) || {}).v ?? 10);
+    const aStart = ((await db.prepare(`SELECT v FROM settings WHERE k='attendance_start'`).first()) || {}).v || "9999-12-31";
+    const users = (await db.prepare(`SELECT id,name,ot_rate,created FROM users WHERE active=1 AND id IN (SELECT DISTINCT user_id FROM schedules UNION SELECT DISTINCT user_id FROM shifts WHERE day LIKE ?)`).bind(mo + "%").all()).results;
+    const sch = (await db.prepare(`SELECT * FROM schedules`).all()).results;
+    const shifts = (await db.prepare(`SELECT * FROM shifts WHERE day LIKE ? ORDER BY in_ts`).bind(mo + "%").all()).results;
+    const td = today(), out = [];
+    for (const u of users) {
+      const days = [], T = { late_n: 0, late_min: 0, absent: 0, early_min: 0, extra_min: 0, worked_min: 0, open: 0 };
+      for (let d = 1; d <= last; d++) {
+        const day = `${mo}-${String(d).padStart(2, "0")}`; if (day > td) break;
+        const dow = new Date(day + "T12:00:00Z").getUTCDay();
+        const s = sch.find(x => x.user_id === u.id && x.dow === dow);
+        const sh = shifts.filter(x => x.user_id === u.id && x.day === day);
+        if (!s && !sh.length) continue;
+        const r = { day, dow, start: s ? s.start : null, end: s ? s.end : null, shifts: sh.map(x => ({ id: x.id, in_ts: x.in_ts, out_ts: x.out_ts, note: x.note, edited: !!x.edited_by })), late: 0, early: 0, extra: 0, worked: 0, absent: false };
+        if (sh.length) {
+          const first = sh[0], lastS = sh[sh.length - 1];
+          sh.forEach(x => { if (x.out_ts) r.worked += Math.round((x.out_ts - x.in_ts) / 60e3); else if (day < td) T.open++; });
+          if (s) {
+            const st = hm2min(s.start), en = hm2min(s.end), lin = mzMin(first.in_ts) - st;
+            if (lin > tol) { r.late = lin; T.late_n++; T.late_min += lin; }
+            if (lastS.out_ts) { const o = mzMin(lastS.out_ts); if (o > en) r.extra = o - en; else if (o < en) r.early = en - o; }
+          } else r.extra = r.worked; // dia de folga trabalhado conta tudo como extra
+        } else if (s && day < td && day >= aStart && day >= (u.created || "")) { r.absent = true; T.absent++; }
+        else if (!sh.length) continue;
+        T.early_min += r.early; T.extra_min += r.extra; T.worked_min += r.worked;
+        days.push(r);
+      }
+      out.push({ id: u.id, name: u.name, ot_rate: u.ot_rate, totals: { ...T, extra_value: Math.round(T.extra_min / 60 * (u.ot_rate || 0)) }, days });
+    }
+    return json({ month: mo, tolerance: tol, rows: out });
+  }
+  const shM = path.match(/^\/shifts\/(\d+)$/);
+  if ((path === "/shifts" && m === "POST") || (shM && (m === "PUT" || m === "DELETE"))) {
+    if (!mgr) return err("Só a gerência pode corrigir o ponto", 403);
+    if (m === "DELETE") { await db.prepare(`DELETE FROM shifts WHERE id=?`).bind(+shM[1]).run(); return json({ ok: true }); }
+    const toTs = (day, hm) => { const mm = hm2min(hm); return mm == null ? null : Date.parse(day + "T00:00:00Z") - 2 * 3600e3 + mm * 60e3; };
+    const day = /^\d{4}-\d{2}-\d{2}$/.test(body.day || "") ? body.day : null; if (!day) return err("Data inválida");
+    const inTs = toTs(day, body.in), outTs = toTs(day, body.out);
+    if (inTs == null) return err("Hora de entrada inválida");
+    if (outTs != null && outTs <= inTs) return err("A saída tem de ser depois da entrada");
+    const note = (body.note || "").slice(0, 200);
+    if (m === "POST") await db.prepare(`INSERT INTO shifts(user_id,day,in_ts,out_ts,edited_by,note) VALUES(?,?,?,?,?,?)`).bind(+body.user_id, day, inTs, outTs, user.id, note).run();
+    else await db.prepare(`UPDATE shifts SET in_ts=?, out_ts=?, edited_by=?, note=? WHERE id=?`).bind(inTs, outTs, user.id, note, +shM[1]).run();
+    return json({ ok: true });
   }
 
   // Caixa (cash na loja)

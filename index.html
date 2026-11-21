@@ -213,6 +213,38 @@ if(MTA_BN)document.write('<link rel="preload" as="image" type="image/webp" image
   .srch-e{padding:30px 4px;color:#8a8d90;font-size:14px;text-align:center}
   .srch-s{display:flex;flex-wrap:wrap;gap:8px;padding:14px 0}
   .srch-s button{font-size:13px;padding:8px 14px;border-radius:999px;background:#f2f2f2;color:#101820}
+  .menu-btn{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff}
+  .menu-btn svg{width:26px;height:26px}
+  .mnu{position:fixed;inset:0;z-index:64;background:#fff;display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .28s ease;visibility:hidden}
+  .mnu.on{transform:none;visibility:visible}
+  .mnu-top{display:flex;align-items:center;gap:12px;padding:14px 14px 10px}
+  .mnu-s{flex:1;display:flex;align-items:center;gap:10px;background:#f2f2f2;border-radius:999px;padding:12px 16px;color:#8a8d90;font-size:15px;text-align:left}
+  .mnu-s svg{width:18px;height:18px;color:#101820}
+  .mnu-x{flex:none;width:40px;height:40px;font-size:26px;line-height:1;color:#101820}
+  .mnu-b{flex:1;overflow-y:auto;padding:4px 14px 30px}
+  .mnu-v{display:none}.mnu-v.on{display:block}
+  .mt{display:flex;align-items:stretch;width:100%;text-align:left;background:#f2f2f2;border-radius:12px;overflow:hidden;margin-bottom:10px;min-height:96px}
+  .mt span{flex:1;display:flex;align-items:center;padding:0 20px;font-family:Montserrat,Poppins,sans-serif;font-size:17px;font-weight:700;color:#101820}
+  .mt img{width:34%;max-width:170px;object-fit:cover;display:block}
+  .mt.dark{background:linear-gradient(110deg,#0d1218,#1d2733);min-height:78px;align-items:center}
+  .mt.dark span{color:#fff;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px}
+  .mt.dark small{font-family:Poppins,sans-serif;font-size:12.5px;font-weight:400;opacity:.85}
+  .mt.dark i{font-style:normal;color:#fff;font-size:24px;padding-right:20px}
+  .mv-h{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 14px;font-family:Montserrat,Poppins,sans-serif;font-size:16px;font-weight:700;color:#101820}
+  .mv-h button{width:40px;height:40px;font-size:30px;line-height:1;color:#101820}
+  .mv-t{font-family:Montserrat,Poppins,sans-serif;font-size:21px;font-weight:700;color:#101820;margin:4px 2px 12px}
+  .mv-c{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -14px;padding:0 14px 6px;scrollbar-width:none}
+  .mv-c::-webkit-scrollbar{display:none}
+  .mv-p{flex:0 0 44%;scroll-snap-align:start;text-align:left}
+  .mv-p .im{position:relative;aspect-ratio:1;background:#f3f3f3;border-radius:6px;overflow:hidden}
+  .mv-p img{width:100%;height:100%;object-fit:cover;display:block}
+  .mv-p .bd{position:absolute;top:6px;left:6px;background:#d6302a;color:#fff;font-size:10.5px;font-weight:600;padding:3px 7px;border-radius:4px}
+  .mv-p b{display:block;margin-top:8px;font-family:Montserrat,Poppins,sans-serif;font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#101820}
+  .mv-p span{font-size:13px;font-weight:600;color:#d6302a}
+  .mv-p s{color:#9a9da0;font-weight:400;font-size:11.5px;margin-left:5px}
+  .mv-all{display:flex;align-items:center;justify-content:space-between;width:100%;margin:18px 0 10px;padding:16px 22px;border:1.5px solid #cfcfcf;border-radius:999px;font-size:15px;font-weight:600;color:#101820}
+  .mv-l{border-top:1px solid #eee;margin-top:10px}
+  .mv-l button{display:flex;align-items:center;justify-content:space-between;width:100%;padding:18px 2px;border-bottom:1px solid #eee;font-size:15px;font-weight:600;color:#101820}
   .badge.so{background:#101820}
   .card.sold .ph img{opacity:.5;filter:grayscale(.6)}
   .card.sold .go{background:#c9cbcd;color:#fff}
@@ -321,6 +353,7 @@ if(MTA_BN)document.write('<link rel="preload" as="image" type="image/webp" image
 <header class="top">
   <div class="top-in">
     <a href="#" id="toTop" aria-label="Voltar ao início"><img src="img/logo.png" alt="MTA Nation"></a>
+    <button class="menu-btn" id="menuBtn" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <button class="srch-btn" id="srchBtn" aria-label="Pesquisar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg></button>
   </div>
 </header>
@@ -347,6 +380,10 @@ if(MTA_BN)document.write('<link rel="preload" as="image" type="image/webp" image
   </div>
 </section>
 
+<div class="mnu" id="mnu" role="dialog" aria-label="Menu">
+  <div class="mnu-top"><button class="mnu-s" id="mnuS"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>Pesquisar</button><button class="mnu-x" id="mnuX" aria-label="Fechar">×</button></div>
+  <div class="mnu-b" id="mnuB"></div>
+</div>
 <div class="srch" id="srch" role="dialog" aria-label="Pesquisar">
   <div class="srch-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg><input id="srchIn" type="search" placeholder="Pesquisar peças (ex.: anel, cuban, pérola)" autocomplete="off" enterkeyhint="search"><button class="srch-x" id="srchX">Cancelar</button></div>
   <div class="srch-r" id="srchR"></div>
@@ -544,6 +581,7 @@ const MATS = [
 ];
 // Categorias escondidas por agora (voltam mais tarde)
 const HIDDEN_CATS=["conjuntos"];
+const MENU_EXTRA=CATS.filter(c=>c.id==="conjuntos"); MENU_EXTRA.forEach(c=>c.groups.forEach(g=>{g.items=g.items.filter(p=>p.imgs)}));
 for(let i=CATS.length-1;i>=0;i--) if(HIDDEN_CATS.includes(CATS[i].id)) CATS.splice(i,1);
 // Produtos escondidos por agora
 const HIDDEN_IDS=["caixa-5","caixa-7"];
@@ -552,13 +590,13 @@ for(let i=CATS.length-1;i>=0;i--){CATS[i].groups=CATS[i].groups.filter(g=>g.item
 // ===== PROMOÇÃO DE PREÇOS =====
 // on:true aplica o desconto a todos os produtos visíveis; on:false volta aos preços normais.
 const SALE={ on:window.MTA_PCT>0, pct:window.MTA_PCT, label:(window.MTA_PH===1?"Black Friday":"Última chance")+(window.MTA_VIP?" VIP":"") };
-if(SALE.on) CATS.forEach(c=>c.groups.forEach(g=>g.items.forEach(p=>{
+if(SALE.on) CATS.concat(MENU_EXTRA).forEach(c=>c.groups.forEach(g=>g.items.forEach(p=>{
   if(p.price==null) return;
   const cut=v=>Math.round(v*(100-SALE.pct)/100);
   p.was=p.price; p.price=cut(p.price); delete p.save;
   if(p.opts) p.opts=p.opts.map(o=>({...o, was:o.price, price:cut(o.price)}));
 })));
-const ALL = {}; CATS.forEach(c=>c.groups.forEach(g=>g.items.forEach(p=>{p.cat=c.name;p.catId=c.id;ALL[p.id]=p})));
+const ALL = {}; CATS.concat(MENU_EXTRA).forEach(c=>c.groups.forEach(g=>g.items.forEach(p=>{p.cat=c.name;p.catId=c.id;ALL[p.id]=p})));
 /* which photo shows each finish (photo number) */
 const FIN = {
   "anel-signet-onyx":{ouro:1,prata:2},
@@ -990,6 +1028,43 @@ document.getElementById("toTop").addEventListener("click",e=>{e.preventDefault()
   res.addEventListener("click",e=>{
     const t=e.target.closest("[data-q]"); if(t){ inp.value=t.dataset.q; render(); return; }
     const b=e.target.closest("[data-id]"); if(b){ closeS(); open(b.dataset.id); }
+  });
+})();
+
+// ===== Menu com categorias e destaques =====
+(function(){
+  const m=document.getElementById("mnu"), body=document.getElementById("mnuB");
+  const IMG={pingentes:"colar-anjo-3",colares:"fio-rope-3mm-3",mascotes:"mascote-2em1-4",aneis:"anel-quadri-3",perolas:"mascote-perola-3mm-2",brincos:"brincos-2","caixinha-mta":"porta-joias-1"};
+  const cats=()=>CATS.filter(c=>c.groups.some(g=>g.items.length));
+  const conj=MENU_EXTRA[0];
+  const itemsOf=c=>c.groups.flatMap(g=>g.items).filter(p=>p.imgs);
+  function popular(c){ const all=itemsOf(c).filter(p=>!p.soldOut); const top=MAIS_VENDIDOS.map(id=>all.find(p=>p.id===id)).filter(Boolean); return top.concat(all.filter(p=>!top.includes(p))).slice(0,8); }
+  function home(){
+    body.innerHTML=`${conj&&itemsOf(conj).length?`<button class="mt dark" data-c="conjuntos"><span>Conjuntos<small>Combina e poupa ainda mais</small></span><i>→</i></button>`:""}
+      ${cats().map(c=>`<button class="mt" data-c="${c.id}"><span>${c.name}</span>${IMG[c.id]?`<img src="img/${IMG[c.id]}.jpg" alt="" loading="lazy">`:""}</button>`).join("")}`;
+    body.scrollTop=0;
+  }
+  function cat(id){
+    const c=id==="conjuntos"?conj:CATS.find(x=>x.id===id); if(!c) return home();
+    const list=id==="conjuntos"?itemsOf(c):popular(c);
+    const nm=c.name, lower=nm.toLowerCase();
+    body.innerHTML=`<div class="mv-h">${nm}<button data-back aria-label="Voltar">‹</button></div>
+      <div class="mv-t">${id==="conjuntos"?"Os nossos conjuntos":`Populares em ${lower}`}</div>
+      <div class="mv-c">${list.map(p=>`<button class="mv-p" data-p="${p.id}"><div class="im"><img src="img/t/${p.id}.jpg" alt="" loading="lazy">${SALE.on&&p.was?`<i class="bd">-${SALE.pct}%</i>`:""}</div><b>${esc(p.name)}</b><span>${p.price==null?"Sob consulta":`${p.opts?"desde ":""}${fmt(p.price)}`}${p.was?`<s>${fmt(p.was)}</s>`:""}</span></button>`).join("")}</div>
+      ${id==="conjuntos"?"":`<button class="mv-all" data-go="${id}">Ver todos · ${nm}<span>→</span></button>`}
+      <div class="mv-l">${cats().filter(x=>x.id!==id).map(x=>`<button data-c="${x.id}">${x.name}<span>›</span></button>`).join("")}</div>`;
+    body.scrollTop=0;
+  }
+  function openM(){ home(); m.classList.add("on"); document.body.style.overflow="hidden"; }
+  function closeM(){ m.classList.remove("on"); document.body.style.overflow=""; }
+  document.getElementById("menuBtn").addEventListener("click",openM);
+  document.getElementById("mnuX").addEventListener("click",closeM);
+  document.getElementById("mnuS").addEventListener("click",()=>{ closeM(); document.getElementById("srchBtn").click(); });
+  body.addEventListener("click",e=>{
+    const p=e.target.closest("[data-p]"); if(p){ closeM(); open(p.dataset.p); return; }
+    const g=e.target.closest("[data-go]"); if(g){ closeM(); const sec=document.getElementById("cat-"+g.dataset.go); if(sec) setTimeout(()=>sec.scrollIntoView({behavior:"smooth"}),60); return; }
+    if(e.target.closest("[data-back]")) return home();
+    const c=e.target.closest("[data-c]"); if(c) return cat(c.dataset.c);
   });
 })();
 </script>

@@ -188,7 +188,7 @@ function render(){
   if(!S.user){ app.innerHTML=`<div class="login"><div class="lbox"><p>A carregar…</p></div></div>`; boot().then(render).catch(e=>{toast(e.message)}); return; }
   const admin=S.user.role==="admin";
   const mgr=admin||S.user.role==="manager";
-  const tabs=[["vender","Vender"],["fecho","Fecho"]].concat(mgr?[["caixa","Caixa"],["gastos","Givings"],["clientes","Clientes"],["campanhas","Marketing"]]:[],[["stock","Stock"]],admin?[["relatorio","Relatório"],["equipa","Equipa"]]:[]);
+  const tabs=[["vender","Vender"],["fecho","Fecho"]].concat(mgr?[["caixa","Caixa"],["clientes","Clientes"],["campanhas","Marketing"]]:[],[["stock","Stock"]],mgr?[["gastos","Givings"]]:[],admin?[["relatorio","Relatório"],["equipa","Equipa"]]:[]);
   app.innerHTML=`<div class="top"><span class="lg">MTA POS</span><div class="nav">${tabs.map(([k,l])=>`<button data-tab="${k}" class="${S.tab===k?"on":""}">${l}</button>`).join("")}</div>
     <div class="who"><span>${esc(S.user.name)}</span><button id="out">Sair</button></div></div><div id="view"></div>`;
   $$("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;render();});

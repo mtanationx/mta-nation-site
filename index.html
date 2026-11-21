@@ -39,7 +39,7 @@ if(MTA_BN)document.write('<link rel="preload" as="image" type="image/webp" image
 
   /* Header */
   .top{background:#000;color:#fff;position:sticky;top:0;z-index:20}
-  .top-in{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:center;padding:18px 18px;height:118px;box-sizing:border-box}
+  .top-in{position:relative;max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:center;padding:18px 18px;height:118px;box-sizing:border-box}
   .top a#toTop{display:block;line-height:0;cursor:pointer}
   .top img{height:76px;width:auto}
   .top .ig{font-size:12px;font-weight:600;letter-spacing:.06em;text-decoration:none;border:1px solid rgba(255,255,255,.35);padding:7px 12px;border-radius:999px}
@@ -193,6 +193,26 @@ if(MTA_BN)document.write('<link rel="preload" as="image" type="image/webp" image
   body.hasbag .fab{display:none}
   .toast{white-space:nowrap;position:fixed;left:50%;bottom:84px;transform:translate(-50%,20px);z-index:70;background:#101820;color:#fff;font-size:13px;font-weight:600;padding:10px 16px;border-radius:999px;opacity:0;pointer-events:none;transition:all .25s}
   .toast.on{opacity:1;transform:translate(-50%,0)}
+  .srch-btn{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;background:transparent}
+  .srch-btn svg{width:24px;height:24px}
+  .srch{position:fixed;inset:0;z-index:65;background:#fff;display:none;flex-direction:column}
+  .srch.on{display:flex}
+  .srch-h{display:flex;align-items:center;gap:10px;padding:14px 14px 12px;border-bottom:1px solid #eee}
+  .srch-h svg{width:20px;height:20px;color:#8a8d90;flex:none}
+  .srch-h input{flex:1;min-width:0;border:0;outline:0;font:inherit;font-size:17px;color:#101820;background:transparent;padding:8px 0}
+  .srch-h input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+  .srch-x{flex:none;font-size:14px;font-weight:600;color:#101820;padding:8px 6px}
+  .srch-r{flex:1;overflow-y:auto;padding:6px 14px 30px}
+  .srch-i{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:10px 0;border-bottom:1px solid #f2f2f2}
+  .srch-i img{width:58px;height:58px;border-radius:10px;object-fit:cover;background:#f3f3f3;flex:none}
+  .srch-i em{display:block;font-style:normal;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:#9a9da0}
+  .srch-i b{display:block;font-family:Montserrat,Poppins,sans-serif;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#101820}
+  .srch-i span{font-size:13px;color:#101820}
+  .srch-i s{color:#9a9da0;font-size:11px;margin-left:4px}
+  .srch-i .so{font-size:10px;font-weight:700;color:#fff;background:#101820;padding:2px 6px;border-radius:4px;margin-left:6px}
+  .srch-e{padding:30px 4px;color:#8a8d90;font-size:14px;text-align:center}
+  .srch-s{display:flex;flex-wrap:wrap;gap:8px;padding:14px 0}
+  .srch-s button{font-size:13px;padding:8px 14px;border-radius:999px;background:#f2f2f2;color:#101820}
   .badge.so{background:#101820}
   .card.sold .ph img{opacity:.5;filter:grayscale(.6)}
   .card.sold .go{background:#c9cbcd;color:#fff}
@@ -301,6 +321,7 @@ if(MTA_BN)document.write('<link rel="preload" as="image" type="image/webp" image
 <header class="top">
   <div class="top-in">
     <a href="#" id="toTop" aria-label="Voltar ao início"><img src="img/logo.png" alt="MTA Nation"></a>
+    <button class="srch-btn" id="srchBtn" aria-label="Pesquisar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg></button>
   </div>
 </header>
 
@@ -326,6 +347,10 @@ if(MTA_BN)document.write('<link rel="preload" as="image" type="image/webp" image
   </div>
 </section>
 
+<div class="srch" id="srch" role="dialog" aria-label="Pesquisar">
+  <div class="srch-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg><input id="srchIn" type="search" placeholder="Pesquisar peças (ex.: anel, cuban, pérola)" autocomplete="off" enterkeyhint="search"><button class="srch-x" id="srchX">Cancelar</button></div>
+  <div class="srch-r" id="srchR"></div>
+</div>
 <main id="main"></main>
 
 <div class="info">
@@ -938,6 +963,35 @@ el('ann-a').addEventListener('click',e=>{e.preventDefault();document.getElementB
 renderBagBar();
 
 document.getElementById("toTop").addEventListener("click",e=>{e.preventDefault(); if(document.getElementById("sheet").classList.contains("on")) close(); window.scrollTo({top:0,behavior:"smooth"});});
+
+// ===== Pesquisa =====
+(function(){
+  const box=document.getElementById("srch"), inp=document.getElementById("srchIn"), res=document.getElementById("srchR");
+  const norm=t=>(t||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+  const SIN={anel:"aneis anel ring",aneis:"aneis anel",colar:"colares colar fio corrente chain",fio:"colares colar fio",mascote:"mascotes pulseira bracelete",pulseira:"mascotes pulseira",pingente:"pingentes pingente",brinco:"brincos brinco",perola:"perolas perola"};
+  const items=()=>CATS.flatMap(c=>c.groups.flatMap(g=>g.items.map(p=>({p,c,g}))));
+  const hay=({p,c,g})=>norm([p.name,p.tag,c.name,c.id,g.title,TIPO[c.id],p.desc].join(" "));
+  function render(){
+    const q=norm(inp.value).trim();
+    if(!q){ res.innerHTML=`<div class="srch-s">${["Anel","Colar","Mascote","Pingente","Pérola","Onyx","Cuban","Rope","Cruz"].map(t=>`<button data-q="${t}">${t}</button>`).join("")}</div>`; return; }
+    const words=q.split(/\s+/).map(w=>SIN[w]?SIN[w].split(" "):[w]);
+    const out=items().filter(x=>{const h=hay(x); return words.every(alts=>alts.some(a=>h.includes(a)));});
+    res.innerHTML=out.length?out.map(({p,c})=>`<button class="srch-i" data-id="${p.id}">
+      ${p.imgs?`<img src="img/t/${p.id}.jpg" alt="" loading="lazy">`:`<img alt="">`}
+      <div><em>${TIPO[c.id]||c.name}</em><b>${esc(p.name)}</b><span>${p.price==null?"Sob consulta":`${p.opts?"desde ":""}${fmt(p.price)}`}${p.was?`<s>${fmt(p.was)}</s>`:""}${p.soldOut?`<i class="so">Esgotado</i>`:""}</span></div></button>`).join("")
+      :`<div class="srch-e">Nenhuma peça encontrada para "${esc(inp.value)}".</div>`;
+  }
+  function openS(){ box.classList.add("on"); document.body.style.overflow="hidden"; inp.value=""; render(); setTimeout(()=>inp.focus(),50); }
+  function closeS(){ box.classList.remove("on"); document.body.style.overflow=""; inp.blur(); }
+  document.getElementById("srchBtn").addEventListener("click",openS);
+  document.getElementById("srchX").addEventListener("click",closeS);
+  inp.addEventListener("input",render);
+  inp.addEventListener("keydown",e=>{ if(e.key==="Escape") closeS(); if(e.key==="Enter") inp.blur(); });
+  res.addEventListener("click",e=>{
+    const t=e.target.closest("[data-q]"); if(t){ inp.value=t.dataset.q; render(); return; }
+    const b=e.target.closest("[data-id]"); if(b){ closeS(); open(b.dataset.id); }
+  });
+})();
 </script>
 </body>
 </html>

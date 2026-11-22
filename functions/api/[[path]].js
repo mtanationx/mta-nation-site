@@ -372,6 +372,13 @@ export async function onRequest(ctx) {
     const r = await db.prepare(`INSERT INTO customers(phone,${CF.join(",")},created,updated) VALUES(?,${CF.map(() => "?").join(",")},?,?)`).bind(ph, ...CF.map(k => String(body[k] || "").slice(0, 300)), today(), Date.now()).run();
     return json({ ok: true, id: r.meta.last_row_id });
   }
+  if (cM && m === "DELETE") {
+    if (!mgr) return err("Só a gerência", 403);
+    const id = +cM[1];
+    // As vendas ficam no histórico, só deixam de estar ligadas ao cliente (0 = não voltar a criar a partir da venda)
+    await db.batch([db.prepare(`UPDATE sales SET customer_id=0 WHERE customer_id=?`).bind(id), db.prepare(`DELETE FROM campaign_sends WHERE customer_id=?`).bind(id), db.prepare(`DELETE FROM customers WHERE id=?`).bind(id)]);
+    return json({ ok: true });
+  }
   if (cM && m === "PUT") {
     if (!mgr) return err("Só a gerência", 403);
     const sets = [], b = [];

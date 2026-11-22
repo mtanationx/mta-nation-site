@@ -19,6 +19,7 @@ Sistema de vendas da loja (Glória Mall) em **mz.mtanation.com/pos**.
 - Caixa: saldo = vendas cash (+transporte) − despesas pagas com cash − recolhas ± ajustes. Na recolha, a diferença contado−esperado vira ajuste automático. A recolha gera mensagem para o grupo de WhatsApp.
 - Cada venda baixa o stock da variante (produto · cor · tamanho) se essa linha tiver número. Anular devolve o stock.
 - Preço por defeito = tabela − desconto da promoção do site (público; VIP com a caixa "Cliente VIP"). Conjuntos sem desconto. O preço pode ser alterado em cada linha.
+- Desconto extra por venda (sales.discount; botões −50/−100/−150/−200/Outro no carrinho). subtotal já vem com o desconto descontado. Fecho mostra "Descontos dados"; recibo mostra a linha.
 - Fecho: produtos, transporte, despesas, comissão (% por pessoa, sobre produtos sem transporte), totais por pagamento e por local.
 - Dia = data de Maputo (UTC+2).
 

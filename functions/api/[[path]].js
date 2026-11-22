@@ -33,7 +33,7 @@ let ready = false;
 async function init(db) {
   if (ready) return;
   await db.batch(SCHEMA.map(s => db.prepare(s)));
-  for (const q of [`ALTER TABLE expenses ADD COLUMN paid_cash INTEGER NOT NULL DEFAULT 1`, `ALTER TABLE sales ADD COLUMN customer_id INTEGER`, `ALTER TABLE sales ADD COLUMN campaign_id INTEGER`, `ALTER TABLE sales ADD COLUMN source TEXT`, `ALTER TABLE logistics ADD COLUMN pay_method TEXT`, `ALTER TABLE logistics ADD COLUMN pickup_method TEXT`, `ALTER TABLE giving ADD COLUMN status TEXT NOT NULL DEFAULT 'Pago'`, `ALTER TABLE users ADD COLUMN ot_rate INTEGER NOT NULL DEFAULT 0`]) { try { await db.prepare(q).run(); } catch (e) { /* já existe */ } }
+  for (const q of [`ALTER TABLE expenses ADD COLUMN paid_cash INTEGER NOT NULL DEFAULT 1`, `ALTER TABLE sales ADD COLUMN customer_id INTEGER`, `ALTER TABLE sales ADD COLUMN campaign_id INTEGER`, `ALTER TABLE sales ADD COLUMN source TEXT`, `ALTER TABLE logistics ADD COLUMN pay_method TEXT`, `ALTER TABLE logistics ADD COLUMN pickup_method TEXT`, `ALTER TABLE giving ADD COLUMN status TEXT NOT NULL DEFAULT 'Pago'`, `ALTER TABLE users ADD COLUMN ot_rate INTEGER NOT NULL DEFAULT 0`, `ALTER TABLE sales ADD COLUMN discount INTEGER NOT NULL DEFAULT 0`]) { try { await db.prepare(q).run(); } catch (e) { /* já existe */ } }
   try { await db.prepare(`CREATE INDEX IF NOT EXISTS sales_cust ON sales(customer_id)`).run(); } catch (e) {}
   ready = true;
 }
@@ -210,11 +210,14 @@ export async function onRequest(ctx) {
       sellerId = +body.user_id;
     }
     if (String(body.phone || "").trim() && !normPhone(body.phone)) return err("Número de telefone inválido. Um número de Moçambique tem 9 dígitos (ex: 84 123 4567).");
-    const subtotal = items.reduce((a, i) => a + Math.round(i.unit_price) * Math.round(i.qty), 0);
+    const gross = items.reduce((a, i) => a + Math.round(i.unit_price) * Math.round(i.qty), 0);
+    const discount = Math.max(0, Math.min(gross, Math.round(+body.discount || 0)));
+    const subtotal = gross - discount;
     const day = mgr && /^\d{4}-\d{2}-\d{2}$/.test(body.day || "") ? body.day : today();
     const r = await db.prepare(`INSERT INTO sales(day,ts,user_id,channel,payment,delivery,subtotal,customer,phone,notes) VALUES(?,?,?,?,?,?,?,?,?,?)`)
       .bind(day, Date.now(), sellerId, body.channel || "Loja", body.payment || "", Math.round(+body.delivery || 0), subtotal, (body.customer || "").slice(0, 80), (body.phone || "").slice(0, 30), (body.notes || "").slice(0, 300)).run();
     const saleId = r.meta.last_row_id;
+    if (discount) await db.prepare(`UPDATE sales SET discount=? WHERE id=?`).bind(discount, saleId).run();
     const custId = await upsertCustomer(db, { name: (body.customer || "").slice(0, 80), phone: body.phone, source: body.channel });
     if (custId) await db.prepare(`UPDATE sales SET customer_id=? WHERE id=?`).bind(custId, saleId).run();
     if (body.campaign_id || body.source) await db.prepare(`UPDATE sales SET campaign_id=?, source=? WHERE id=?`).bind(body.campaign_id ? +body.campaign_id : null, (body.source || "").slice(0, 60), saleId).run();

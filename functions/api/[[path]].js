@@ -401,7 +401,7 @@ export async function onRequest(ctx) {
     const endD = new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7), 0)).toISOString().slice(0, 10);
     const until = endD < today() ? endD : today();
     // Vendas da loja vindas de anúncios (origem escolhida no POS)
-    const pos = await db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(subtotal),0) revenue FROM sales WHERE void=0 AND source LIKE 'Anúncio%' AND day BETWEEN ? AND ?`).bind(since, until).first();
+    const pos = await db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(subtotal),0) revenue FROM sales WHERE void=0 AND (source IN ('Instagram','Facebook') OR source LIKE 'Anúncio%') AND day BETWEEN ? AND ?`).bind(since, until).first();
     const rate = +((await db.prepare(`SELECT v FROM settings WHERE k='usd_rate'`).first()) || {}).v || 64;
     if (!env.META_TOKEN || !env.META_ACT) return json({ month, configured: false, pos, rate });
     const key = `ads:${month}`;

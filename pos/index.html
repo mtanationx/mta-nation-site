@@ -263,12 +263,12 @@ function drawGrid(){
 }
 function pick(id){
   const p=S.products.find(x=>x.id===id);
-  let cor=p.mats?null:"-", size=p.sizes.length?null:"-", qty=1, price=salePrice(p);
+  let cor=p.mats?(p.onlyMats&&p.onlyMats.length===1?p.onlyMats[0]:null):"-", size=p.sizes.length?null:"-", qty=1, price=salePrice(p);
   const m=document.createElement("div"); m.className="mod";
   const draw=()=>{
     const stLine=(c,s)=>{const n=stk(p.id,c,s);return n==null?"":`<small>${n} em stock</small>`;};
     m.innerHTML=`<div class="mbox"><div class="row" style="justify-content:space-between"><div><div class="muted small">${esc(p.cat)}</div><h2>${esc(p.name)}</h2></div><button class="qbtn" data-x>✕</button></div>
-      ${p.mats?`<label class="l">Cor</label><div class="opts">${["ouro","prata"].map(c=>{const n=size&&size!=="-"?stk(p.id,c,size):(p.sizes.length?null:stk(p.id,c,"-"));return `<button class="opt ${cor===c?"on":""} ${n===0?"zero":""}" data-cor="${c}">${COR[c]}${n==null?"":`<small>${n} em stock</small>`}</button>`;}).join("")}</div>`:""}
+      ${p.mats?`<label class="l">Cor</label><div class="opts">${(p.onlyMats||["ouro","prata"]).map(c=>{const n=size&&size!=="-"?stk(p.id,c,size):(p.sizes.length?null:stk(p.id,c,"-"));return `<button class="opt ${cor===c?"on":""} ${n===0?"zero":""}" data-cor="${c}">${COR[c]}${n==null?"":`<small>${n} em stock</small>`}</button>`;}).join("")}</div>`:""}
       ${p.sizes.length?`<label class="l">Tamanho</label><div class="opts">${p.sizes.map(s=>{const n=cor?stk(p.id,cor,s):null;return `<button class="opt ${size===s?"on":""} ${n===0?"zero":""}" data-sz="${esc(s)}">${esc(s)}${n==null?"":`<small>${n}</small>`}</button>`;}).join("")}</div>`:""}
       <div class="row" style="gap:14px;margin-top:4px"><div style="flex:1"><label class="l">Quantidade</label><div class="row"><button class="qbtn" data-q="-1">−</button><b style="min-width:26px;text-align:center">${qty}</b><button class="qbtn" data-q="1">+</button></div></div>
       <div style="flex:1.4"><label class="l">Preço unitário</label><input class="f" id="pp" inputmode="numeric" value="${price||""}" placeholder="MT"></div></div>

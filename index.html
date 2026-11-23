@@ -307,24 +307,34 @@ if(MTA_BN)document.write('<link rel="preload" as="image" type="image/webp" image
   .order svg{width:22px;height:22px}
   .note{font-size:12px;color:var(--muted);text-align:center;margin-top:10px}
   .revs{max-width:1100px;margin:0 auto;padding:26px 14px 6px}
-  .revs h2{font-family:Montserrat,sans-serif;font-size:15px;letter-spacing:.2em;margin:0 0 4px;text-align:center}
-  .revs .rvsum{text-align:center;color:#666;font-size:13px;margin:0 0 14px}
-  .stars{color:#c9a24a;letter-spacing:1px}
-  .rvrow{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 2px 10px;scrollbar-width:none}
-  .rvrow::-webkit-scrollbar{display:none}
-  .rvc{flex:0 0 78%;max-width:320px;scroll-snap-align:start;background:#fff;border-radius:15px;padding:16px;display:flex;flex-direction:column;gap:8px}
-  .rvc p{margin:0;font-size:14px;line-height:1.5;color:#222}
-  .rvc .who{font-size:12px;color:#666;margin-top:auto}
-  .rvc .who b{color:#101820}
-  .rvc .prod{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#888;text-decoration:none}
-  .vbadge{display:inline-block;font-size:10px;font-weight:700;color:#1e8e3e;margin-left:4px}
+  .revs h2{font-family:Montserrat,sans-serif;font-size:15px;letter-spacing:.2em;margin:0 0 10px;text-align:center}
+  .gst{color:#2E7D4F;letter-spacing:1px}
+  .rvh{display:flex;align-items:center;gap:10px;font-size:22px;margin:4px 0 12px}
+  .rvh .gst{font-size:26px;letter-spacing:2px}
+  .rvh b{font-weight:500;color:#444;font-size:20px}.rvh small{font-size:14px;color:#888}
+  .revs .rvh{justify-content:center}
+  .rvwb{display:block;width:100%;background:#fff;border:1.5px solid #e1e2e3;border-radius:12px;padding:13px;font:inherit;font-size:15px;color:#101820;cursor:pointer;margin:0 0 14px}
+  .rvgrid{display:flex;gap:12px;align-items:flex-start}
+  .rcol{flex:1;min-width:0}
+  .rcard{background:#f6f6f6;border-radius:14px;overflow:hidden;margin:0 0 12px}
+  .revs .rcard{background:#fff}
+  .rcard img{display:block;width:100%;height:auto;cursor:zoom-in}
+  .rcb{padding:12px 12px 14px}
+  .rname{font-size:14px;font-weight:600;color:#101820;display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px}
+  .rver{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:500;color:#333}
+  .rver svg{width:14px;height:14px}
+  .rdate{font-size:12px;color:#888;margin:2px 0 6px}
+  .rcard .gst{font-size:15px}
+  .rcard p{margin:6px 0 0;font-size:13.5px;line-height:1.5;color:#222}
+  .rcard .prod{display:block;margin-top:8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#888;text-decoration:none}
   .rv{margin-top:20px;border-top:1px solid var(--line);padding-top:16px}
-  .rv h3{font-family:Montserrat,sans-serif;font-size:12px;letter-spacing:.16em;margin:0 0 4px}
-  .rv .rvi{padding:12px 0;border-bottom:1px solid var(--line)}
-  .rv .rvi:last-child{border-bottom:0}
-  .rv .rvi p{margin:4px 0;font-size:14px;line-height:1.5}
-  .rv .rvi small{color:#777;font-size:12px}
-  @media(min-width:760px){.rvc{flex-basis:300px}}
+  .rv h3{font-family:Montserrat,sans-serif;font-size:12px;letter-spacing:.16em;margin:0}
+  .rvmore{display:block;margin:0 auto;background:none;border:0;font:inherit;font-size:13px;text-decoration:underline;color:#101820;cursor:pointer;padding:6px}
+  .rvzoom{position:fixed;inset:0;background:#000e;z-index:250;display:flex;align-items:center;justify-content:center;padding:16px}
+  .rvzoom img{max-width:100%;max-height:100%;border-radius:10px}
+  .rvf-ph{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .rvf-ph label{border:1.5px dashed #c9cbcd;border-radius:10px;padding:10px 14px;font-size:14px;cursor:pointer;color:#333}
+  .rvf-ph img{width:54px;height:54px;object-fit:cover;border-radius:8px}
   .rvbtn{margin-top:14px;background:#fff;border:1.5px solid #101820;color:#101820;border-radius:999px;padding:10px 18px;font:inherit;font-weight:600;font-size:13px;cursor:pointer}
   .rvf{position:fixed;inset:0;background:#0009;z-index:200;display:flex;align-items:flex-end;justify-content:center}
   .rvf-b{background:#fff;width:100%;max-width:480px;border-radius:18px 18px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));position:relative}
@@ -1069,37 +1079,46 @@ function stockUI(){
 })();
 /* ===== Avaliações ===== */
 const starStr=n=>"★★★★★".slice(0,Math.round(n))+"☆☆☆☆☆".slice(0,5-Math.round(n));
-const rvDate=d=>{ if(!d) return ""; const [y,m]=d.split("-"); return ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][+m-1]+" "+y; };
-const rvWho=r=>`<b>${esc(r.name)}</b>${r.city?` · ${esc(r.city)}`:""}<span class="vbadge">✓ Verificado</span>`;
+const rvDate=d=>{ if(!d) return ""; const [y,m,dd]=d.split("-"); return `${dd}/${m}/${y}`; };
+const CHK='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#101820"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+function rvCard(r,showProd){ const p=showProd&&r.product_id&&ALL[r.product_id];
+  return `<div class="rcard">${r.has_photo?`<img src="/api/reviews/${r.id}/photo" alt="Foto de ${esc(r.name)}" loading="lazy" data-zoom>`:""}<div class="rcb"><div class="rname">${esc(r.name)}<span class="rver">${CHK}Verificado</span></div><div class="rdate">${rvDate(r.day)}${r.city?` · ${esc(r.city)}`:""}</div><div class="gst">${starStr(r.rating)}</div>${r.text?`<p>${esc(r.text)}</p>`:""}${p?`<a class="prod" href="#${p.id}" data-rvp="${p.id}">${esc(nomeCompleto(p))}</a>`:""}</div></div>`; }
+function rvGrid(rows,showProd,cols){ cols=cols||2; const c=Array.from({length:cols},()=>[]); rows.forEach((r,i)=>c[i%cols].push(rvCard(r,showProd))); return `<div class="rvgrid">${c.map(x=>`<div class="rcol">${x.join("")}</div>`).join("")}</div>`; }
+function rvHead(d){ return d.n?`<div class="rvh"><span class="gst">${starStr(d.avg)}</span><b>${(+d.avg).toFixed(1).replace(".",",")}</b><small>(${d.n})</small></div>`:""; }
+function rvWire(el){ el.querySelectorAll("[data-zoom]").forEach(im=>im.onclick=()=>{ const z=document.createElement("div"); z.className="rvzoom"; z.innerHTML=`<img src="${im.src}" alt="">`; z.onclick=()=>z.remove(); document.body.appendChild(z); });
+  el.querySelectorAll("[data-rvp]").forEach(a=>a.onclick=e=>{e.preventDefault();open(a.dataset.rvp);}); }
 function loadProdReviews(p){
   fetch("/api/reviews?product="+encodeURIComponent(p.id)).then(r=>r.ok?r.json():null).then(d=>{
     const el=sheet.querySelector("#rv"); if(!el||cur!==p) return; d=d||{n:0,rows:[]};
-    el.innerHTML=`<h3>AVALIAÇÕES</h3>${d.n?`<div class="small"><span class="stars">${starStr(d.avg)}</span> ${(+d.avg).toFixed(1).replace(".",",")} · ${d.n} ${d.n===1?"avaliação":"avaliações"}</div>`:`<div class="small" style="color:#777">Ainda sem avaliações. Sê o primeiro!</div>`}`+d.rows.slice(0,6).map(r=>`<div class="rvi"><span class="stars">${starStr(r.rating)}</span>${r.text?`<p>${esc(r.text)}</p>`:""}<small>${rvWho(r)} · ${rvDate(r.day)}</small></div>`).join("")+`<button class="rvbtn" id="rvw">✍️ Escrever avaliação</button>`;
-    el.hidden=false; el.querySelector("#rvw").onclick=()=>reviewForm(p);
+    let shown=4;
+    const draw=()=>{ el.innerHTML=`<h3>AVALIAÇÕES</h3>${d.n?rvHead(d):`<p style="color:#777;font-size:14px;margin:8px 0 12px">Ainda sem avaliações. Sê o primeiro!</p>`}<button class="rvwb" id="rvw">Escrever avaliação</button>${rvGrid(d.rows.slice(0,shown),false,2)}${d.rows.length>shown?`<button class="rvmore" id="rvm">Ver mais avaliações</button>`:""}`;
+      el.querySelector("#rvw").onclick=()=>reviewForm(p); const mb=el.querySelector("#rvm"); if(mb) mb.onclick=()=>{shown+=6;draw();}; rvWire(el); };
+    draw(); el.hidden=false;
   }).catch(()=>{});
 }
 (function(){
   fetch("/api/reviews").then(r=>r.ok?r.json():null).then(d=>{
     if(!d||!d.n) return; const el=document.getElementById("revs");
-    el.innerHTML=`<h2>O QUE DIZEM OS CLIENTES</h2><p class="rvsum"><span class="stars">${starStr(d.avg)}</span> ${(+d.avg).toFixed(1).replace(".",",")} · ${d.n} ${d.n===1?"avaliação":"avaliações"}</p>
-      <div class="rvrow">${d.rows.filter(r=>r.text).map(r=>{const p=r.product_id&&ALL[r.product_id];return `<div class="rvc"><span class="stars">${starStr(r.rating)}</span><p>“${esc(r.text)}”</p>${p?`<a class="prod" href="#${p.id}" data-rvp="${p.id}">${esc(nomeCompleto(p))}</a>`:""}<div class="who">${rvWho(r)}</div></div>`;}).join("")}</div>`;
-    el.insertAdjacentHTML("beforeend",`<div style="text-align:center"><button class="rvbtn" id="rvh">✍️ Deixa a tua avaliação</button></div>`); el.querySelector("#rvh").onclick=()=>reviewForm(null);
-    el.hidden=false;
-    el.querySelectorAll("[data-rvp]").forEach(a=>a.onclick=e=>{e.preventDefault();open(a.dataset.rvp);});
+    el.innerHTML=`<h2>O QUE DIZEM OS CLIENTES</h2>${rvHead(d)}<button class="rvwb" id="rvh" style="max-width:420px;margin:0 auto 16px">Escrever avaliação</button>${rvGrid(d.rows.slice(0,8),true,innerWidth>=760?4:2)}`;
+    el.querySelector("#rvh").onclick=()=>reviewForm(null); rvWire(el); el.hidden=false;
   }).catch(()=>{});
 })();
+function rvShrink(file){ return new Promise((res,rej)=>{ const img=new Image(), u=URL.createObjectURL(file); img.onload=()=>{ const k=Math.min(1,1080/Math.max(img.width,img.height)); const c=document.createElement("canvas"); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k); c.getContext("2d").drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(u); res(c.toDataURL("image/jpeg",0.72)); }; img.onerror=()=>rej(new Error("Não consegui ler a foto")); img.src=u; }); }
 function reviewForm(p){
   const m=document.createElement("div"); m.className="rvf"; let rating=0;
   m.innerHTML=`<div class="rvf-b" role="dialog" aria-label="Escrever avaliação"><button class="rvf-x" aria-label="Fechar">✕</button><h3>${p?`AVALIAR: ${esc(nomeCompleto(p)).toUpperCase()}`:"DEIXA A TUA AVALIAÇÃO"}</h3>
     <div class="rvf-st">${[1,2,3,4,5].map(n=>`<button data-n="${n}" aria-label="${n} estrelas">★</button>`).join("")}</div>
     <textarea id="rvt" maxlength="600" placeholder="${p?"O que achaste da peça?":"Como foi a tua experiência com a MTA Nation?"}"></textarea>
     <div class="rvf-2"><input id="rvn" maxlength="40" placeholder="Nome (ex: Danilo M.)"><input id="rvc" maxlength="40" placeholder="Cidade"></div>
+    <div class="rvf-ph"><label>📷 Adicionar foto<input type="file" id="rvph" accept="image/*" hidden></label><span id="rvpv" style="font-size:12px;color:#888">opcional · tu com a peça</span></div>
     <input id="rvp" maxlength="20" inputmode="tel" placeholder="Telefone (opcional, não aparece no site)"><input class="rvf-hp" id="rvhp" tabindex="-1" autocomplete="off">
     <button class="rvf-go" id="rvgo">Enviar avaliação</button><p class="rvf-e" id="rve"></p><p class="rvf-n">A tua avaliação aparece no site depois de verificada pela nossa equipa.</p></div>`;
+  let photo=null;
+  m.querySelector("#rvph").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; const pv=m.querySelector("#rvpv"); pv.textContent="A preparar…"; try{ photo=await rvShrink(f); pv.innerHTML=`<img src="${photo}" alt="">`; }catch(x){ pv.textContent=x.message; } };
   const close=()=>m.remove(); m.querySelector(".rvf-x").onclick=close; m.onclick=e=>{if(e.target===m)close();};
   m.querySelectorAll(".rvf-st button").forEach(b=>b.onclick=()=>{ rating=+b.dataset.n; m.querySelectorAll(".rvf-st button").forEach(x=>x.classList.toggle("on",+x.dataset.n<=rating)); });
   m.querySelector("#rvgo").onclick=async e=>{ const er=m.querySelector("#rve"); er.textContent="";
-    const body={product_id:p?p.id:null,rating,text:m.querySelector("#rvt").value,name:m.querySelector("#rvn").value,city:m.querySelector("#rvc").value,phone:m.querySelector("#rvp").value,website:m.querySelector("#rvhp").value};
+    const body={product_id:p?p.id:null,rating,text:m.querySelector("#rvt").value,name:m.querySelector("#rvn").value,city:m.querySelector("#rvc").value,phone:m.querySelector("#rvp").value,website:m.querySelector("#rvhp").value,photo};
     if(!rating){ er.textContent="Toca nas estrelas para avaliar."; return; }
     e.target.disabled=true;
     try{ const r=await fetch("/api/reviews/open",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)}); const x=await r.json(); if(!r.ok) throw new Error(x.error||"Erro");

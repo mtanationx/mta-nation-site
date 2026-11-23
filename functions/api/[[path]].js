@@ -29,13 +29,14 @@ const SCHEMA = [
   `CREATE INDEX IF NOT EXISTS shifts_day ON shifts(day)`,
   `CREATE TABLE IF NOT EXISTS reviews(id INTEGER PRIMARY KEY AUTOINCREMENT, product_id TEXT, name TEXT, city TEXT, rating INTEGER NOT NULL, text TEXT, source TEXT, status TEXT NOT NULL DEFAULT 'pending', featured INTEGER NOT NULL DEFAULT 0, sale_id INTEGER, day TEXT, created INTEGER, ip TEXT, by_user INTEGER)`,
   `CREATE INDEX IF NOT EXISTS reviews_prod ON reviews(product_id,status)`,
+  `CREATE TABLE IF NOT EXISTS review_photos(review_id INTEGER PRIMARY KEY, data TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS cash_moves(id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, day TEXT, type TEXT NOT NULL, amount INTEGER NOT NULL, counted INTEGER, expected INTEGER, user_id INTEGER, notes TEXT)`,
 ];
 let ready = false;
 async function init(db) {
   if (ready) return;
   await db.batch(SCHEMA.map(s => db.prepare(s)));
-  for (const q of [`ALTER TABLE expenses ADD COLUMN paid_cash INTEGER NOT NULL DEFAULT 1`, `ALTER TABLE sales ADD COLUMN customer_id INTEGER`, `ALTER TABLE sales ADD COLUMN campaign_id INTEGER`, `ALTER TABLE sales ADD COLUMN source TEXT`, `ALTER TABLE logistics ADD COLUMN pay_method TEXT`, `ALTER TABLE logistics ADD COLUMN pickup_method TEXT`, `ALTER TABLE giving ADD COLUMN status TEXT NOT NULL DEFAULT 'Pago'`, `ALTER TABLE users ADD COLUMN ot_rate INTEGER NOT NULL DEFAULT 0`, `ALTER TABLE sales ADD COLUMN discount INTEGER NOT NULL DEFAULT 0`, `ALTER TABLE sales ADD COLUMN review_token TEXT`]) { try { await db.prepare(q).run(); } catch (e) { /* já existe */ } }
+  for (const q of [`ALTER TABLE expenses ADD COLUMN paid_cash INTEGER NOT NULL DEFAULT 1`, `ALTER TABLE sales ADD COLUMN customer_id INTEGER`, `ALTER TABLE sales ADD COLUMN campaign_id INTEGER`, `ALTER TABLE sales ADD COLUMN source TEXT`, `ALTER TABLE logistics ADD COLUMN pay_method TEXT`, `ALTER TABLE logistics ADD COLUMN pickup_method TEXT`, `ALTER TABLE giving ADD COLUMN status TEXT NOT NULL DEFAULT 'Pago'`, `ALTER TABLE users ADD COLUMN ot_rate INTEGER NOT NULL DEFAULT 0`, `ALTER TABLE sales ADD COLUMN discount INTEGER NOT NULL DEFAULT 0`, `ALTER TABLE sales ADD COLUMN review_token TEXT`, `ALTER TABLE reviews ADD COLUMN has_photo INTEGER NOT NULL DEFAULT 0`]) { try { await db.prepare(q).run(); } catch (e) { /* já existe */ } }
   try { await db.prepare(`CREATE INDEX IF NOT EXISTS sales_cust ON sales(customer_id)`).run(); } catch (e) {}
   ready = true;
 }
@@ -69,6 +70,11 @@ const CUST_STATS = `SELECT c.*, COUNT(s.id) n, COALESCE(SUM(s.subtotal),0) total
 const mzDay = ts => new Date(ts + 2 * 3600e3).toISOString().slice(0, 10);
 const mzMin = ts => { const d = new Date(ts + 2 * 3600e3); return d.getUTCHours() * 60 + d.getUTCMinutes(); };
 const hm2min = s => { const m = /^(\d{1,2}):(\d{2})$/.exec(s || ""); return m ? +m[1] * 60 + +m[2] : null; };
+async function saveReviewPhoto(db, id, data) {
+  if (!data) return;
+  if (!/^data:image\/(jpeg|png|webp);base64,/.test(data) || data.length > 1500000) throw new Error("Foto inválida ou demasiado grande");
+  await db.batch([db.prepare(`INSERT INTO review_photos(review_id,data) VALUES(?,?) ON CONFLICT(review_id) DO UPDATE SET data=excluded.data`).bind(id, data), db.prepare(`UPDATE reviews SET has_photo=1 WHERE id=?`).bind(id)]);
+}
 const COR_LABEL = { ouro: "Dourado", prata: "Prateado", "-": "—" };
 
 async function auth(req, db) {
@@ -162,15 +168,23 @@ export async function onRequest(ctx) {
   // Avaliações (públicas)
   if (path === "/reviews" && m === "GET") {
     const pid = url.searchParams.get("product");
-    const cols = `id,product_id,name,city,rating,text,day,CASE WHEN sale_id IS NOT NULL THEN 'compra' ELSE 'mta' END AS verified`;
+    const cols = `id,product_id,name,city,rating,text,day,has_photo,CASE WHEN sale_id IS NOT NULL THEN 'compra' ELSE 'mta' END AS verified`;
     if (pid) {
       const rows = (await db.prepare(`SELECT ${cols} FROM reviews WHERE status='approved' AND product_id=? ORDER BY featured DESC, id DESC LIMIT 30`).bind(pid).all()).results;
       const agg = await db.prepare(`SELECT COUNT(*) n, AVG(rating) avg FROM reviews WHERE status='approved' AND product_id=?`).bind(pid).first();
-      return new Response(JSON.stringify({ rows, n: agg.n, avg: agg.avg }), { headers: { "content-type": "application/json", "cache-control": "public, max-age=60" } });
+      return new Response(JSON.stringify({ rows, n: agg.n, avg: agg.avg }), { headers: { "content-type": "application/json", "cache-control": "public, max-age=30" } });
     }
     const rows = (await db.prepare(`SELECT ${cols} FROM reviews WHERE status='approved' ORDER BY featured DESC, id DESC LIMIT 12`).all()).results;
     const agg = await db.prepare(`SELECT COUNT(*) n, AVG(rating) avg FROM reviews WHERE status='approved'`).first();
-    return new Response(JSON.stringify({ rows, n: agg.n, avg: agg.avg }), { headers: { "content-type": "application/json", "cache-control": "public, max-age=60" } });
+    return new Response(JSON.stringify({ rows, n: agg.n, avg: agg.avg }), { headers: { "content-type": "application/json", "cache-control": "public, max-age=30" } });
+  }
+  const rpM = path.match(/^\/reviews\/(\d+)\/photo$/);
+  if (rpM && m === "GET") {
+    const r = await db.prepare(`SELECT p.data FROM review_photos p JOIN reviews r ON r.id=p.review_id WHERE p.review_id=? AND (r.status='approved' OR ?)`).bind(+rpM[1], url.searchParams.get("admin") ? 1 : 0).first();
+    if (!r) return new Response("", { status: 404 });
+    const mm = /^data:(image\/[a-z]+);base64,(.*)$/.exec(r.data); if (!mm) return new Response("", { status: 404 });
+    const bin = Uint8Array.from(atob(mm[2]), c => c.charCodeAt(0));
+    return new Response(bin, { headers: { "content-type": mm[1], "cache-control": "public, max-age=86400" } });
   }
   if (path === "/reviews/sale" && m === "GET") {
     const s = await db.prepare(`SELECT id,customer,day FROM sales WHERE id=? AND review_token=? AND void=0`).bind(+url.searchParams.get("s") || 0, url.searchParams.get("k") || "-").first();
@@ -188,7 +202,8 @@ export async function onRequest(ctx) {
     const name = String(body.name || "").trim().slice(0, 40); if (!name) return err("Escreve o teu nome");
     const text = String(body.text || "").trim().slice(0, 600); if (text.length < 3) return err("Escreve um pequeno comentário");
     const notes = String(body.phone || "").replace(/[^\d+ ]/g, "").slice(0, 20);
-    await db.prepare(`INSERT INTO reviews(product_id,name,city,rating,text,source,status,day,created,ip) VALUES(?,?,?,?,?,?,'pending',?,?,?)`).bind(body.product_id || null, name, String(body.city || "").trim().slice(0, 40), rating, text, "Site" + (notes ? " · " + notes : ""), today(), Date.now(), ip).run();
+    const ins = await db.prepare(`INSERT INTO reviews(product_id,name,city,rating,text,source,status,day,created,ip) VALUES(?,?,?,?,?,?,'pending',?,?,?)`).bind(body.product_id || null, name, String(body.city || "").trim().slice(0, 40), rating, text, "Site" + (notes ? " · " + notes : ""), today(), Date.now(), ip).run();
+    try { await saveReviewPhoto(db, ins.meta.last_row_id, body.photo); } catch (e) { return err(e.message); }
     return json({ ok: true });
   }
   if (path === "/reviews/submit" && m === "POST") {
@@ -202,7 +217,10 @@ export async function onRequest(ctx) {
     const list = (Array.isArray(body.reviews) ? body.reviews : []).filter(r => +r.rating >= 1 && +r.rating <= 5).slice(0, 10);
     if (!list.length) return err("Dá pelo menos uma avaliação");
     const ip = req.headers.get("cf-connecting-ip") || "";
-    await db.batch(list.map(r => db.prepare(`INSERT INTO reviews(product_id,name,city,rating,text,source,status,sale_id,day,created,ip) VALUES(?,?,?,?,?,'Site','pending',?,?,?,?)`).bind(r.product_id || null, name, city, Math.round(+r.rating), String(r.text || "").trim().slice(0, 600), s.id, today(), Date.now(), ip)));
+    for (const r of list) {
+      const ins = await db.prepare(`INSERT INTO reviews(product_id,name,city,rating,text,source,status,sale_id,day,created,ip) VALUES(?,?,?,?,?,'Site','pending',?,?,?,?)`).bind(r.product_id || null, name, city, Math.round(+r.rating), String(r.text || "").trim().slice(0, 600), s.id, today(), Date.now(), ip).run();
+      try { await saveReviewPhoto(db, ins.meta.last_row_id, r.photo); } catch (e) {}
+    }
     return json({ ok: true });
   }
 
@@ -776,19 +794,22 @@ export async function onRequest(ctx) {
     const rating = Math.round(+body.rating || 0); if (rating < 1 || rating > 5) return err("Escolhe as estrelas");
     if (!String(body.name || "").trim()) return err("Escreve o nome do cliente");
     if (!String(body.text || "").trim()) return err("Escreve o comentário");
-    await db.prepare(`INSERT INTO reviews(product_id,name,city,rating,text,source,status,day,created,by_user) VALUES(?,?,?,?,?,?,'approved',?,?,?)`).bind(body.product_id || null, String(body.name).trim().slice(0, 40), String(body.city || "").trim().slice(0, 40), rating, String(body.text).trim().slice(0, 600), body.source || "WhatsApp", /^\d{4}-\d{2}-\d{2}$/.test(body.day || "") ? body.day : today(), Date.now(), user.id).run();
+    const ins = await db.prepare(`INSERT INTO reviews(product_id,name,city,rating,text,source,status,day,created,by_user) VALUES(?,?,?,?,?,?,'approved',?,?,?)`).bind(body.product_id || null, String(body.name).trim().slice(0, 40), String(body.city || "").trim().slice(0, 40), rating, String(body.text).trim().slice(0, 600), body.source || "WhatsApp", /^\d{4}-\d{2}-\d{2}$/.test(body.day || "") ? body.day : today(), Date.now(), user.id).run();
+    try { await saveReviewPhoto(db, ins.meta.last_row_id, body.photo); } catch (e) { return err(e.message); }
     return json({ ok: true });
   }
   const rvM = path.match(/^\/reviews\/(\d+)$/);
   if (rvM && (m === "PUT" || m === "DELETE")) {
     if (!mgr) return err("Só a gerência", 403);
-    if (m === "DELETE") { await db.prepare(`DELETE FROM reviews WHERE id=?`).bind(+rvM[1]).run(); return json({ ok: true }); }
+    if (m === "DELETE") { await db.batch([db.prepare(`DELETE FROM review_photos WHERE review_id=?`).bind(+rvM[1]), db.prepare(`DELETE FROM reviews WHERE id=?`).bind(+rvM[1])]); return json({ ok: true }); }
     const sets = [], b = [];
     if (["pending", "approved", "rejected"].includes(body.status)) { sets.push("status=?"); b.push(body.status); }
     if (body.featured != null) { sets.push("featured=?"); b.push(body.featured ? 1 : 0); }
     ["name", "city", "text", "product_id"].forEach(k => { if (body[k] != null) { sets.push(`${k}=?`); b.push(String(body[k]).slice(0, 600) || null); } });
     if (body.rating != null) { sets.push("rating=?"); b.push(Math.max(1, Math.min(5, Math.round(+body.rating)))); }
     if (sets.length) await db.prepare(`UPDATE reviews SET ${sets.join(",")} WHERE id=?`).bind(...b, +rvM[1]).run();
+    if (body.photo === "") await db.batch([db.prepare(`DELETE FROM review_photos WHERE review_id=?`).bind(+rvM[1]), db.prepare(`UPDATE reviews SET has_photo=0 WHERE id=?`).bind(+rvM[1])]);
+    else try { await saveReviewPhoto(db, +rvM[1], body.photo); } catch (e) { return err(e.message); }
     return json({ ok: true });
   }
 

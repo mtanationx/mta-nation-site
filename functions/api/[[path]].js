@@ -162,7 +162,7 @@ export async function onRequest(ctx) {
   // Avaliações (públicas)
   if (path === "/reviews" && m === "GET") {
     const pid = url.searchParams.get("product");
-    const cols = `id,product_id,name,city,rating,text,source,day,sale_id IS NOT NULL AS verified`;
+    const cols = `id,product_id,name,city,rating,text,day,CASE WHEN sale_id IS NOT NULL THEN 'compra' ELSE 'mta' END AS verified`;
     if (pid) {
       const rows = (await db.prepare(`SELECT ${cols} FROM reviews WHERE status='approved' AND product_id=? ORDER BY featured DESC, id DESC LIMIT 30`).bind(pid).all()).results;
       const agg = await db.prepare(`SELECT COUNT(*) n, AVG(rating) avg FROM reviews WHERE status='approved' AND product_id=?`).bind(pid).first();
@@ -178,6 +178,18 @@ export async function onRequest(ctx) {
     const items = (await db.prepare(`SELECT DISTINCT product_id,name FROM sale_items WHERE sale_id=?`).bind(s.id).all()).results;
     const done = await db.prepare(`SELECT COUNT(*) n FROM reviews WHERE sale_id=?`).bind(s.id).first();
     return json({ customer: (s.customer || "").split(" ")[0], items, done: done.n > 0 });
+  }
+  if (path === "/reviews/open" && m === "POST") {
+    if (body.website) return json({ ok: true }); // armadilha anti-spam
+    const ip = req.headers.get("cf-connecting-ip") || "";
+    const recent = await db.prepare(`SELECT COUNT(*) n FROM reviews WHERE ip=? AND created>?`).bind(ip, Date.now() - 864e5).first();
+    if (recent.n >= 3) return err("Já recebemos as tuas avaliações de hoje. Obrigado!", 429);
+    const rating = Math.round(+body.rating || 0); if (rating < 1 || rating > 5) return err("Toca nas estrelas para avaliar");
+    const name = String(body.name || "").trim().slice(0, 40); if (!name) return err("Escreve o teu nome");
+    const text = String(body.text || "").trim().slice(0, 600); if (text.length < 3) return err("Escreve um pequeno comentário");
+    const notes = String(body.phone || "").replace(/[^\d+ ]/g, "").slice(0, 20);
+    await db.prepare(`INSERT INTO reviews(product_id,name,city,rating,text,source,status,day,created,ip) VALUES(?,?,?,?,?,?,'pending',?,?,?)`).bind(body.product_id || null, name, String(body.city || "").trim().slice(0, 40), rating, text, "Site" + (notes ? " · " + notes : ""), today(), Date.now(), ip).run();
+    return json({ ok: true });
   }
   if (path === "/reviews/submit" && m === "POST") {
     if (body.website) return json({ ok: true }); // armadilha anti-spam

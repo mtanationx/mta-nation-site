@@ -1070,7 +1070,7 @@ function stockUI(){
 /* ===== Avaliações ===== */
 const starStr=n=>"★★★★★".slice(0,Math.round(n))+"☆☆☆☆☆".slice(0,5-Math.round(n));
 const rvDate=d=>{ if(!d) return ""; const [y,m]=d.split("-"); return ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][+m-1]+" "+y; };
-const rvWho=r=>`<b>${esc(r.name)}</b>${r.city?` · ${esc(r.city)}`:""}<span class="vbadge">✓ ${r.verified==="compra"?"Compra verificada":"Verificada pela MTA"}</span>`;
+const rvWho=r=>`<b>${esc(r.name)}</b>${r.city?` · ${esc(r.city)}`:""}<span class="vbadge">✓ Verificado</span>`;
 function loadProdReviews(p){
   fetch("/api/reviews?product="+encodeURIComponent(p.id)).then(r=>r.ok?r.json():null).then(d=>{
     const el=sheet.querySelector("#rv"); if(!el||cur!==p) return; d=d||{n:0,rows:[]};

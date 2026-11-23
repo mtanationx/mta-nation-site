@@ -27,13 +27,15 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS schedules(user_id INTEGER NOT NULL, dow INTEGER NOT NULL, start TEXT, end TEXT, PRIMARY KEY(user_id,dow))`,
   `CREATE TABLE IF NOT EXISTS shifts(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, day TEXT NOT NULL, in_ts INTEGER, out_ts INTEGER, edited_by INTEGER, note TEXT)`,
   `CREATE INDEX IF NOT EXISTS shifts_day ON shifts(day)`,
+  `CREATE TABLE IF NOT EXISTS reviews(id INTEGER PRIMARY KEY AUTOINCREMENT, product_id TEXT, name TEXT, city TEXT, rating INTEGER NOT NULL, text TEXT, source TEXT, status TEXT NOT NULL DEFAULT 'pending', featured INTEGER NOT NULL DEFAULT 0, sale_id INTEGER, day TEXT, created INTEGER, ip TEXT, by_user INTEGER)`,
+  `CREATE INDEX IF NOT EXISTS reviews_prod ON reviews(product_id,status)`,
   `CREATE TABLE IF NOT EXISTS cash_moves(id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, day TEXT, type TEXT NOT NULL, amount INTEGER NOT NULL, counted INTEGER, expected INTEGER, user_id INTEGER, notes TEXT)`,
 ];
 let ready = false;
 async function init(db) {
   if (ready) return;
   await db.batch(SCHEMA.map(s => db.prepare(s)));
-  for (const q of [`ALTER TABLE expenses ADD COLUMN paid_cash INTEGER NOT NULL DEFAULT 1`, `ALTER TABLE sales ADD COLUMN customer_id INTEGER`, `ALTER TABLE sales ADD COLUMN campaign_id INTEGER`, `ALTER TABLE sales ADD COLUMN source TEXT`, `ALTER TABLE logistics ADD COLUMN pay_method TEXT`, `ALTER TABLE logistics ADD COLUMN pickup_method TEXT`, `ALTER TABLE giving ADD COLUMN status TEXT NOT NULL DEFAULT 'Pago'`, `ALTER TABLE users ADD COLUMN ot_rate INTEGER NOT NULL DEFAULT 0`, `ALTER TABLE sales ADD COLUMN discount INTEGER NOT NULL DEFAULT 0`]) { try { await db.prepare(q).run(); } catch (e) { /* já existe */ } }
+  for (const q of [`ALTER TABLE expenses ADD COLUMN paid_cash INTEGER NOT NULL DEFAULT 1`, `ALTER TABLE sales ADD COLUMN customer_id INTEGER`, `ALTER TABLE sales ADD COLUMN campaign_id INTEGER`, `ALTER TABLE sales ADD COLUMN source TEXT`, `ALTER TABLE logistics ADD COLUMN pay_method TEXT`, `ALTER TABLE logistics ADD COLUMN pickup_method TEXT`, `ALTER TABLE giving ADD COLUMN status TEXT NOT NULL DEFAULT 'Pago'`, `ALTER TABLE users ADD COLUMN ot_rate INTEGER NOT NULL DEFAULT 0`, `ALTER TABLE sales ADD COLUMN discount INTEGER NOT NULL DEFAULT 0`, `ALTER TABLE sales ADD COLUMN review_token TEXT`]) { try { await db.prepare(q).run(); } catch (e) { /* já existe */ } }
   try { await db.prepare(`CREATE INDEX IF NOT EXISTS sales_cust ON sales(customer_id)`).run(); } catch (e) {}
   ready = true;
 }
@@ -157,6 +159,41 @@ export async function onRequest(ctx) {
     return json({ token, user: u });
   }
 
+  // Avaliações (públicas)
+  if (path === "/reviews" && m === "GET") {
+    const pid = url.searchParams.get("product");
+    const cols = `id,product_id,name,city,rating,text,source,day,sale_id IS NOT NULL AS verified`;
+    if (pid) {
+      const rows = (await db.prepare(`SELECT ${cols} FROM reviews WHERE status='approved' AND product_id=? ORDER BY featured DESC, id DESC LIMIT 30`).bind(pid).all()).results;
+      const agg = await db.prepare(`SELECT COUNT(*) n, AVG(rating) avg FROM reviews WHERE status='approved' AND product_id=?`).bind(pid).first();
+      return new Response(JSON.stringify({ rows, n: agg.n, avg: agg.avg }), { headers: { "content-type": "application/json", "cache-control": "public, max-age=60" } });
+    }
+    const rows = (await db.prepare(`SELECT ${cols} FROM reviews WHERE status='approved' ORDER BY featured DESC, id DESC LIMIT 12`).all()).results;
+    const agg = await db.prepare(`SELECT COUNT(*) n, AVG(rating) avg FROM reviews WHERE status='approved'`).first();
+    return new Response(JSON.stringify({ rows, n: agg.n, avg: agg.avg }), { headers: { "content-type": "application/json", "cache-control": "public, max-age=60" } });
+  }
+  if (path === "/reviews/sale" && m === "GET") {
+    const s = await db.prepare(`SELECT id,customer,day FROM sales WHERE id=? AND review_token=? AND void=0`).bind(+url.searchParams.get("s") || 0, url.searchParams.get("k") || "-").first();
+    if (!s) return err("Link inválido ou expirado", 404);
+    const items = (await db.prepare(`SELECT DISTINCT product_id,name FROM sale_items WHERE sale_id=?`).bind(s.id).all()).results;
+    const done = await db.prepare(`SELECT COUNT(*) n FROM reviews WHERE sale_id=?`).bind(s.id).first();
+    return json({ customer: (s.customer || "").split(" ")[0], items, done: done.n > 0 });
+  }
+  if (path === "/reviews/submit" && m === "POST") {
+    if (body.website) return json({ ok: true }); // armadilha anti-spam
+    const s = await db.prepare(`SELECT id FROM sales WHERE id=? AND review_token=? AND void=0`).bind(+body.s || 0, String(body.k || "-")).first();
+    if (!s) return err("Link inválido", 403);
+    const already = await db.prepare(`SELECT COUNT(*) n FROM reviews WHERE sale_id=?`).bind(s.id).first();
+    if (already.n) return err("Esta compra já foi avaliada. Obrigado!");
+    const name = String(body.name || "").trim().slice(0, 40), city = String(body.city || "").trim().slice(0, 40);
+    if (!name) return err("Escreve o teu nome");
+    const list = (Array.isArray(body.reviews) ? body.reviews : []).filter(r => +r.rating >= 1 && +r.rating <= 5).slice(0, 10);
+    if (!list.length) return err("Dá pelo menos uma avaliação");
+    const ip = req.headers.get("cf-connecting-ip") || "";
+    await db.batch(list.map(r => db.prepare(`INSERT INTO reviews(product_id,name,city,rating,text,source,status,sale_id,day,created,ip) VALUES(?,?,?,?,?,'Site','pending',?,?,?,?)`).bind(r.product_id || null, name, city, Math.round(+r.rating), String(r.text || "").trim().slice(0, 600), s.id, today(), Date.now(), ip)));
+    return json({ ok: true });
+  }
+
   // Ponto (clock in/out) — só a partir do dispositivo da loja
   if (path === "/clock" && m === "POST") {
     const dev = await db.prepare(`SELECT token,name FROM devices WHERE token=? AND active=1`).bind(String(body.device || "")).first();
@@ -218,6 +255,8 @@ export async function onRequest(ctx) {
       .bind(day, Date.now(), sellerId, body.channel || "Loja", body.payment || "", Math.round(+body.delivery || 0), subtotal, (body.customer || "").slice(0, 80), (body.phone || "").slice(0, 30), (body.notes || "").slice(0, 300)).run();
     const saleId = r.meta.last_row_id;
     if (discount) await db.prepare(`UPDATE sales SET discount=? WHERE id=?`).bind(discount, saleId).run();
+    const reviewToken = [...crypto.getRandomValues(new Uint8Array(6))].map(x => x.toString(16).padStart(2, "0")).join("");
+    await db.prepare(`UPDATE sales SET review_token=? WHERE id=?`).bind(reviewToken, saleId).run();
     const custId = await upsertCustomer(db, { name: (body.customer || "").slice(0, 80), phone: body.phone, source: body.channel });
     if (custId) await db.prepare(`UPDATE sales SET customer_id=? WHERE id=?`).bind(custId, saleId).run();
     if (body.campaign_id || body.source) await db.prepare(`UPDATE sales SET campaign_id=?, source=? WHERE id=?`).bind(body.campaign_id ? +body.campaign_id : null, (body.source || "").slice(0, 60), saleId).run();
@@ -225,7 +264,7 @@ export async function onRequest(ctx) {
       .bind(saleId, i.product_id, (i.name || "").slice(0, 120), i.cor || "-", i.size || "-", Math.round(i.qty), Math.round(i.unit_price), i.list_price == null ? null : Math.round(i.list_price))));
     await adjustStock(db, user, items.map(i => ({ product_id: i.product_id, cor: i.cor || "-", size: i.size || "-", delta: -Math.round(i.qty) })), `venda #${saleId}`);
     const n = await db.prepare(`SELECT COUNT(*) AS n FROM sales WHERE day=? AND id<=?`).bind(day, saleId).first();
-    return json({ ok: true, id: saleId, number: n.n });
+    return json({ ok: true, id: saleId, number: n.n, review: `s=${saleId}&k=${reviewToken}` });
   }
   if (path === "/sales" && m === "GET") {
     const day = url.searchParams.get("day") || today();
@@ -712,6 +751,32 @@ export async function onRequest(ctx) {
     const note = (body.note || "").slice(0, 200);
     if (m === "POST") await db.prepare(`INSERT INTO shifts(user_id,day,in_ts,out_ts,edited_by,note) VALUES(?,?,?,?,?,?)`).bind(+body.user_id, day, inTs, outTs, user.id, note).run();
     else await db.prepare(`UPDATE shifts SET in_ts=?, out_ts=?, edited_by=?, note=? WHERE id=?`).bind(inTs, outTs, user.id, note, +shM[1]).run();
+    return json({ ok: true });
+  }
+
+  // Avaliações (gestão)
+  if (path === "/reviews/admin" && m === "GET") {
+    if (!mgr) return err("Só a gerência", 403);
+    return json({ rows: (await db.prepare(`SELECT r.*, (r.sale_id IS NOT NULL) verified FROM reviews r ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END, id DESC LIMIT 300`).all()).results });
+  }
+  if (path === "/reviews" && m === "POST") {
+    if (!mgr) return err("Só a gerência", 403);
+    const rating = Math.round(+body.rating || 0); if (rating < 1 || rating > 5) return err("Escolhe as estrelas");
+    if (!String(body.name || "").trim()) return err("Escreve o nome do cliente");
+    if (!String(body.text || "").trim()) return err("Escreve o comentário");
+    await db.prepare(`INSERT INTO reviews(product_id,name,city,rating,text,source,status,day,created,by_user) VALUES(?,?,?,?,?,?,'approved',?,?,?)`).bind(body.product_id || null, String(body.name).trim().slice(0, 40), String(body.city || "").trim().slice(0, 40), rating, String(body.text).trim().slice(0, 600), body.source || "WhatsApp", /^\d{4}-\d{2}-\d{2}$/.test(body.day || "") ? body.day : today(), Date.now(), user.id).run();
+    return json({ ok: true });
+  }
+  const rvM = path.match(/^\/reviews\/(\d+)$/);
+  if (rvM && (m === "PUT" || m === "DELETE")) {
+    if (!mgr) return err("Só a gerência", 403);
+    if (m === "DELETE") { await db.prepare(`DELETE FROM reviews WHERE id=?`).bind(+rvM[1]).run(); return json({ ok: true }); }
+    const sets = [], b = [];
+    if (["pending", "approved", "rejected"].includes(body.status)) { sets.push("status=?"); b.push(body.status); }
+    if (body.featured != null) { sets.push("featured=?"); b.push(body.featured ? 1 : 0); }
+    ["name", "city", "text", "product_id"].forEach(k => { if (body[k] != null) { sets.push(`${k}=?`); b.push(String(body[k]).slice(0, 600) || null); } });
+    if (body.rating != null) { sets.push("rating=?"); b.push(Math.max(1, Math.min(5, Math.round(+body.rating)))); }
+    if (sets.length) await db.prepare(`UPDATE reviews SET ${sets.join(",")} WHERE id=?`).bind(...b, +rvM[1]).run();
     return json({ ok: true });
   }
 

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#101820">
+<title>Avalia a tua compra · MTA Nation</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f5f6;font-family:Poppins,system-ui,sans-serif;color:#101820}
+.top{background:#000;padding:22px 0;text-align:center}.top img{height:56px}
+.wrap{max-width:520px;margin:0 auto;padding:18px 14px 40px}
+h1{font-family:Montserrat,sans-serif;font-size:18px;letter-spacing:.12em;text-align:center;margin:8px 0 4px}
+.sub{text-align:center;color:#666;font-size:14px;margin:0 0 18px}
+.card{background:#fff;border-radius:15px;padding:16px;margin-bottom:12px}
+.item{display:flex;gap:12px;align-items:center}
+.item img{width:64px;height:64px;border-radius:10px;object-fit:cover;background:#eee;flex:none}
+.item b{font-size:14px}
+.st{display:flex;gap:4px;margin:8px 0}
+.st button{border:0;background:none;font-size:30px;line-height:1;color:#d6d6d6;cursor:pointer;padding:0 2px}
+.st button.on{color:#c9a24a}
+textarea,input{width:100%;font:inherit;padding:11px 12px;border:1px solid #e3e4e5;border-radius:10px;background:#fff}
+textarea{min-height:70px;resize:vertical}
+label{display:block;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#777;margin:12px 0 6px}
+.btn{display:block;width:100%;background:#101820;color:#fff;border:0;border-radius:12px;padding:15px;font:inherit;font-weight:600;font-size:16px;cursor:pointer;margin-top:16px}
+.btn:disabled{opacity:.5}
+.err{color:#c62828;font-size:14px;min-height:20px;margin-top:10px;text-align:center}
+.hp{position:absolute;left:-9999px}
+.ok{text-align:center;padding:30px 10px}.ok .big{font-size:52px}
+.note{font-size:12px;color:#888;text-align:center;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="top"><a href="/"><img src="/img/logo.png" alt="MTA Nation" onerror="this.replaceWith(Object.assign(document.createElement('b'),{textContent:'MTA NATION',style:'color:#fff;letter-spacing:.3em'}))"></a></div>
+<div class="wrap" id="app"><p class="sub">A carregar…</p></div>
+<script>
+const q=new URLSearchParams(location.search), S=q.get("s"), K=q.get("k"), app=document.getElementById("app");
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const ratings={};
+function stars(key){ return `<div class="st" data-key="${key}">${[1,2,3,4,5].map(n=>`<button type="button" data-n="${n}" aria-label="${n} estrelas">★</button>`).join("")}</div>`; }
+fetch(`/api/reviews/sale?s=${encodeURIComponent(S||"")}&k=${encodeURIComponent(K||"")}`).then(r=>r.json().then(d=>({ok:r.ok,d}))).then(({ok,d})=>{
+  if(!ok){ app.innerHTML=`<div class="card ok"><div class="big">🔗</div><h1>LINK INVÁLIDO</h1><p class="sub">Este link de avaliação não é válido. Fala connosco pelo WhatsApp.</p></div>`; return; }
+  if(d.done){ app.innerHTML=`<div class="card ok"><div class="big">🖤</div><h1>OBRIGADO!</h1><p class="sub">Esta compra já foi avaliada.</p><a class="btn" href="/">Ver catálogo</a></div>`; return; }
+  app.innerHTML=`<h1>AVALIA A TUA COMPRA</h1><p class="sub">${d.customer?`Olá ${esc(d.customer)}! `:""}A tua opinião ajuda outros clientes e a nós a melhorar.</p>
+    ${d.items.map((it,i)=>`<div class="card"><div class="item"><img src="/img/t/${esc(it.product_id)}.jpg" alt="" onerror="this.style.visibility='hidden'"><b>${esc(it.name)}</b></div>${stars("p"+i)}<textarea data-t="p${i}" placeholder="O que achaste da peça? (opcional)"></textarea></div>`).join("")}
+    <div class="card"><b>E o nosso atendimento?</b>${stars("svc")}<textarea data-t="svc" placeholder="Como foi a experiência connosco? (opcional)"></textarea></div>
+    <div class="card"><label>O teu nome (aparece assim no site)</label><input id="nm" placeholder="ex: Danilo M." maxlength="40"><label>Cidade</label><input id="ct" placeholder="ex: Maputo" maxlength="40"><input class="hp" id="hp" tabindex="-1" autocomplete="off"></div>
+    <button class="btn" id="go">Enviar avaliação</button><div class="err" id="err"></div>
+    <p class="note">As avaliações são revistas antes de aparecerem no site.</p>`;
+  document.querySelectorAll(".st").forEach(box=>box.querySelectorAll("button").forEach(b=>b.onclick=()=>{ const n=+b.dataset.n; ratings[box.dataset.key]=n; box.querySelectorAll("button").forEach(x=>x.classList.toggle("on",+x.dataset.n<=n)); }));
+  document.getElementById("go").onclick=async e=>{
+    const t=k=>(document.querySelector(`[data-t="${k}"]`)||{}).value||"";
+    const reviews=d.items.map((it,i)=>({product_id:it.product_id,rating:ratings["p"+i],text:t("p"+i)})).filter(r=>r.rating);
+    if(ratings.svc) reviews.push({product_id:null,rating:ratings.svc,text:t("svc")});
+    const err=document.getElementById("err"); err.textContent="";
+    if(!reviews.length){ err.textContent="Toca nas estrelas para avaliar."; return; }
+    const name=document.getElementById("nm").value.trim(); if(!name){ err.textContent="Escreve o teu nome."; return; }
+    e.target.disabled=true;
+    try{ const r=await fetch("/api/reviews/submit",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({s:S,k:K,name,city:document.getElementById("ct").value.trim(),reviews,website:document.getElementById("hp").value})}); const x=await r.json(); if(!r.ok) throw new Error(x.error||"Erro");
+      app.innerHTML=`<div class="card ok"><div class="big">🖤</div><h1>OBRIGADO!</h1><p class="sub">A tua avaliação foi recebida.</p><a class="btn" href="/">Ver catálogo</a></div>`;
+    }catch(x){ err.textContent=x.message; e.target.disabled=false; }
+  };
+}).catch(()=>{ app.innerHTML=`<p class="sub">Não foi possível carregar. Tenta de novo.</p>`; });
+</script>
+</body>
+</html>

@@ -349,7 +349,7 @@ async function checkout(){
     $("#go",m).onclick=async e=>{ keep(); const pc=phv(); if(!pc.ok){ toast("Corrige o número de telefone"); $("#cp",m).focus(); return; } e.target.disabled=true; e.target.textContent="A guardar…";
       try{ const items=S.cart.map(i=>({...i})); const extra=f.src.startsWith("c")&&/^c\d+$/.test(f.src)?{campaign_id:+f.src.slice(1),source:""}:{campaign_id:null,source:f.src}; const r=await api("/sales",{method:"POST",body:{...f,...extra,items,discount:disc}});
         items.forEach(i=>{const k=`${i.product_id}|${i.cor}|${i.size}`; if(S.stock[k]!=null) S.stock[k]=Math.max(0,S.stock[k]-i.qty);});
-        S.cart=[]; S.vip=false; S.disc=0; saveCart(); done(m,{...f,items,number:r.number,id:r.id,ts:Date.now(),sub,discount:disc});
+        S.cart=[]; S.vip=false; S.disc=0; saveCart(); done(m,{...f,items,number:r.number,id:r.id,ts:Date.now(),sub,discount:disc,review:r.review});
       }catch(err){ toast(err.message); e.target.disabled=false; e.target.textContent="Confirmar venda"; } };
   };
   m.onclick=e=>{if(e.target===m)m.remove();};
@@ -357,7 +357,7 @@ async function checkout(){
 }
 function receipt(s){
   const lines=s.items.map(i=>`• ${i.qty>1?i.qty+"x ":""}${itemLabel(i)} — ${fmt(i.unit_price*i.qty)}`);
-  return `*MTA Nation* — Recibo nº ${s.number} (${dmy(S.today)} ${hm(s.ts)})\n\n${lines.join("\n")}${s.discount?`\n• Desconto — −${fmt(s.discount)}`:""}${s.delivery?`\n• Transporte — ${fmt(s.delivery)}`:""}\n\n*Total: ${fmt(s.sub+(s.delivery||0))}*\nPagamento: ${s.payment}\n\nObrigado pela preferência! 🖤\nGlória Mall, Quiosque Nº8 · mz.mtanation.com\nGarantia: guarda este recibo e o teu cartão de garantia.`;
+  return `*MTA Nation* — Recibo nº ${s.number} (${dmy(S.today)} ${hm(s.ts)})\n\n${lines.join("\n")}${s.discount?`\n• Desconto — −${fmt(s.discount)}`:""}${s.delivery?`\n• Transporte — ${fmt(s.delivery)}`:""}\n\n*Total: ${fmt(s.sub+(s.delivery||0))}*\nPagamento: ${s.payment}\n\nObrigado pela preferência! 🖤\nGlória Mall, Quiosque Nº8 · mz.mtanation.com\nGarantia: guarda este recibo e o teu cartão de garantia.${s.review?`\n\n⭐ Gostaste? Deixa a tua avaliação (1 minuto):\nhttps://mz.mtanation.com/avaliar/?${s.review}`:""}`;
 }
 function done(m,s){
   const ph=waNum(s.phone);
@@ -626,9 +626,10 @@ async function custModal(id,after){
 /* ----- campanhas ----- */
 async function vCampanhas(v){
   S.mk=S.mk||"ads";
-  v.innerHTML=`<div class="wrap"><div class="cats" style="margin-bottom:12px"><button class="chip ${S.mk==="ads"?"on":""}" data-mk="ads">Anúncios Meta</button><button class="chip ${S.mk==="msg"?"on":""}" data-mk="msg">Mensagens WhatsApp</button></div><div id="mkb"></div></div>`;
+  v.innerHTML=`<div class="wrap"><div class="cats" style="margin-bottom:12px"><button class="chip ${S.mk==="ads"?"on":""}" data-mk="ads">Anúncios Meta</button><button class="chip ${S.mk==="msg"?"on":""}" data-mk="msg">Mensagens WhatsApp</button><button class="chip ${S.mk==="rev"?"on":""}" data-mk="rev">Avaliações</button></div><div id="mkb"></div></div>`;
   $$("[data-mk]").forEach(b=>b.onclick=()=>{S.mk=b.dataset.mk;vCampanhas(v);});
   if(S.mk==="ads") return vAds($("#mkb"));
+  if(S.mk==="rev") return vRevs($("#mkb"));
   return vMsgs($("#mkb"));
 }
 async function vAds(v,fresh){
@@ -653,6 +654,46 @@ async function vAds(v,fresh){
     ${posBox(toMT(T.spend))}
     ${cur!=="MZN"&&S.user.role==="admin"?`<p class="small muted">Taxa usada: 1 USD = <input id="rate" value="${r.rate}" inputmode="decimal" style="width:70px;padding:4px;border:1px solid var(--line);border-radius:6px"> MT <button class="chip" id="rsv">Guardar</button></p>`:""}`;
   const rsv=$("#rsv"); if(rsv) rsv.onclick=async()=>{ try{ await api("/settings",{method:"PUT",body:{usd_rate:+$("#rate").value.replace(",",".")}}); toast("Taxa guardada"); vAds(v);}catch(e){toast(e.message);} };
+}
+async function vRevs(v){
+  v.innerHTML=`<div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><h2 style="margin:0;font-size:18px">Avaliações</h2><button class="btn" id="rnew">+ Avaliação do WhatsApp</button></div><div id="rb"><p class="empty">A carregar…</p></div>`;
+  $("#rnew").onclick=()=>revModal(null,()=>vRevs(v));
+  let rows; try{ rows=(await api("/reviews/admin")).rows; }catch(e){ $("#rb").innerHTML=`<p class="empty">${esc(e.message)}</p>`; return; }
+  const pn=id=>{ if(!id) return "Atendimento / loja"; const p=S.products.find(x=>x.id===id); return p?p.name:id; };
+  const st=n=>"★★★★★".slice(0,n)+"☆☆☆☆☆".slice(0,5-n);
+  const pend=rows.filter(r=>r.status==="pending"), appr=rows.filter(r=>r.status==="approved"), rej=rows.filter(r=>r.status==="rejected");
+  const avg=appr.length?appr.reduce((a,r)=>a+r.rating,0)/appr.length:0;
+  const item=r=>`<div class="ci" style="align-items:flex-start"><div><div><span style="color:#c9a24a">${st(r.rating)}</span> <span class="small muted">${esc(pn(r.product_id))}</span></div>${r.text?`<div style="margin:4px 0">“${esc(r.text)}”</div>`:""}<div class="small muted">${esc(r.name)}${r.city?` · ${esc(r.city)}`:""} · ${r.day?dmy(r.day):""} · ${r.verified?"✓ compra verificada":esc(r.source||"")}${r.featured?" · ⭐ destaque":""}</div></div>
+    <div class="row" style="flex-wrap:wrap;justify-content:flex-end;gap:6px">${r.status!=="approved"?`<button class="chip on" data-ap="${r.id}">Aprovar</button>`:`<button class="chip" data-ft="${r.id}" data-v="${r.featured?0:1}">${r.featured?"Tirar destaque":"⭐ Destacar"}</button>`}${r.status==="pending"?`<button class="chip" data-rj="${r.id}">Rejeitar</button>`:""}<button class="chip" data-red="${r.id}">Editar</button></div></div>`;
+  $("#rb").innerHTML=`<div class="kpis" style="margin-top:12px"><div class="kpi"><small>No site</small><b>${appr.length}</b><div class="small muted">média ${avg.toFixed(1).replace(".",",")} ★</div></div><div class="kpi" style="${pend.length?"border-color:var(--red)":""}"><small>Por aprovar</small><b>${pend.length}</b><div class="small muted">enviadas pelos clientes</div></div></div>
+    ${pend.length?`<div class="sec-h"><h3 class="mont">POR APROVAR</h3></div><div class="card">${pend.map(item).join("")}</div>`:""}
+    <div class="sec-h"><h3 class="mont">NO SITE</h3><span class="small muted">⭐ destaque = aparece primeiro na página inicial</span></div><div class="card">${appr.map(item).join("")||`<p class="muted small">Ainda sem avaliações. Toca em “+ Avaliação do WhatsApp” para registar os elogios que recebem.</p>`}</div>
+    ${rej.length?`<div class="sec-h"><h3 class="mont">REJEITADAS</h3></div><div class="card">${rej.map(item).join("")}</div>`:""}
+    <p class="small muted">Os recibos enviados por WhatsApp já levam um link para o cliente avaliar. As avaliações dos clientes só aparecem no site depois de aprovadas aqui.</p>`;
+  const upd=async(id,body,msg)=>{ try{ await api("/reviews/"+id,{method:"PUT",body}); toast(msg); vRevs(v);}catch(e){toast(e.message);} };
+  $$("[data-ap]",v).forEach(b=>b.onclick=()=>upd(b.dataset.ap,{status:"approved"},"Aprovada: já aparece no site"));
+  $$("[data-rj]",v).forEach(b=>b.onclick=()=>upd(b.dataset.rj,{status:"rejected"},"Rejeitada"));
+  $$("[data-ft]",v).forEach(b=>b.onclick=()=>upd(b.dataset.ft,{featured:+b.dataset.v},"Atualizado"));
+  $$("[data-red]",v).forEach(b=>b.onclick=()=>revModal(rows.find(r=>r.id===+b.dataset.red),()=>vRevs(v)));
+}
+function revModal(r,after){
+  const isNew=!r; r=r||{product_id:"",name:"",city:"Maputo",rating:5,text:"",day:S.today};
+  let rating=r.rating;
+  const m=document.createElement("div"); m.className="mod";
+  m.innerHTML=`<div class="mbox"><div class="row" style="justify-content:space-between"><h2>${isNew?"Avaliação do WhatsApp":"Editar avaliação"}</h2><button class="qbtn" data-x>✕</button></div>
+    ${isNew?`<p class="small muted">Copia aqui um elogio real que o cliente enviou. Pede-lhe autorização para o publicar e usa só o primeiro nome e a inicial.</p>`:""}
+    <label class="l">Sobre</label><select class="f" id="r_p"><option value="">Atendimento / loja (geral)</option>${S.products.map(p=>`<option value="${p.id}" ${r.product_id===p.id?"selected":""}>${esc(p.name)} (${esc(p.cat)})</option>`).join("")}</select>
+    <label class="l">Estrelas</label><div class="opts" id="r_st">${[1,2,3,4,5].map(n=>`<button class="opt" data-n="${n}" style="min-width:0;font-size:22px;padding:4px 8px;color:${n<=rating?"#c9a24a":"#ccc"}">★</button>`).join("")}</div>
+    <label class="l">Comentário</label><textarea class="f" id="r_t" rows="3" placeholder="ex: Adorei o anel, chegou no mesmo dia!">${esc(r.text||"")}</textarea>
+    <div class="row" style="gap:10px"><div style="flex:1.4"><label class="l">Nome</label><input class="f" id="r_n" value="${esc(r.name||"")}" placeholder="ex: Danilo M."></div><div style="flex:1"><label class="l">Cidade</label><input class="f" id="r_c" value="${esc(r.city||"")}"></div></div>
+    ${isNew?`<label class="l">Data</label><input class="f" type="date" id="r_d" value="${esc(r.day)}">`:""}
+    <button class="btn" id="rsv" style="width:100%;margin-top:14px">${isNew?"Publicar no site":"Guardar"}</button>${isNew?"":`<button class="btn sec" id="rdel" style="width:100%;margin-top:8px;color:var(--red)">Apagar avaliação</button>`}</div>`;
+  $$("#r_st [data-n]",m).forEach(b=>b.onclick=()=>{ rating=+b.dataset.n; $$("#r_st [data-n]",m).forEach(x=>x.style.color=+x.dataset.n<=rating?"#c9a24a":"#ccc"); });
+  $("[data-x]",m).onclick=()=>m.remove(); m.onclick=e=>{if(e.target===m)m.remove();};
+  $("#rsv",m).onclick=async()=>{ const body={product_id:$("#r_p",m).value,rating,text:$("#r_t",m).value.trim(),name:$("#r_n",m).value.trim(),city:$("#r_c",m).value.trim()}; if(isNew){ body.day=$("#r_d",m).value; body.source="WhatsApp"; }
+    try{ if(isNew) await api("/reviews",{method:"POST",body}); else await api("/reviews/"+r.id,{method:"PUT",body}); m.remove(); toast(isNew?"Publicada no site":"Guardado"); after(); }catch(e){toast(e.message);} };
+  const rd=$("#rdel",m); if(rd) rd.onclick=async()=>{ if(!confirmBox("Apagar esta avaliação?")) return; try{ await api("/reviews/"+r.id,{method:"DELETE"}); m.remove(); after(); }catch(e){toast(e.message);} };
+  document.body.appendChild(m);
 }
 async function vMsgs(v){
   v.innerHTML=`<div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><h2 style="margin:0;font-size:18px">Mensagens WhatsApp</h2><button class="btn" id="ncp">+ Mensagem</button></div><div id="cpb"><p class="empty">A carregar…</p></div>`;

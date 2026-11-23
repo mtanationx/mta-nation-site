@@ -7,3 +7,6 @@
 /pos/*
   Cache-Control: no-cache
   X-Robots-Tag: noindex
+/avaliar/*
+  Cache-Control: no-cache
+  X-Robots-Tag: noindex

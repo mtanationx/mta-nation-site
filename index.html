@@ -306,6 +306,25 @@ if(MTA_BN)document.write('<link rel="preload" as="image" type="image/webp" image
   .order{margin-top:20px;display:flex;align-items:center;justify-content:center;gap:10px;background:var(--wa);color:#fff;text-decoration:none;font-weight:700;font-size:15px;padding:15px;border-radius:12px}
   .order svg{width:22px;height:22px}
   .note{font-size:12px;color:var(--muted);text-align:center;margin-top:10px}
+  .revs{max-width:1100px;margin:0 auto;padding:26px 14px 6px}
+  .revs h2{font-family:Montserrat,sans-serif;font-size:15px;letter-spacing:.2em;margin:0 0 4px;text-align:center}
+  .revs .rvsum{text-align:center;color:#666;font-size:13px;margin:0 0 14px}
+  .stars{color:#c9a24a;letter-spacing:1px}
+  .rvrow{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 2px 10px;scrollbar-width:none}
+  .rvrow::-webkit-scrollbar{display:none}
+  .rvc{flex:0 0 78%;max-width:320px;scroll-snap-align:start;background:#fff;border-radius:15px;padding:16px;display:flex;flex-direction:column;gap:8px}
+  .rvc p{margin:0;font-size:14px;line-height:1.5;color:#222}
+  .rvc .who{font-size:12px;color:#666;margin-top:auto}
+  .rvc .who b{color:#101820}
+  .rvc .prod{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#888;text-decoration:none}
+  .vbadge{display:inline-block;font-size:10px;font-weight:700;color:#1e8e3e;margin-left:4px}
+  .rv{margin-top:20px;border-top:1px solid var(--line);padding-top:16px}
+  .rv h3{font-family:Montserrat,sans-serif;font-size:12px;letter-spacing:.16em;margin:0 0 4px}
+  .rv .rvi{padding:12px 0;border-bottom:1px solid var(--line)}
+  .rv .rvi:last-child{border-bottom:0}
+  .rv .rvi p{margin:4px 0;font-size:14px;line-height:1.5}
+  .rv .rvi small{color:#777;font-size:12px}
+  @media(min-width:760px){.rvc{flex-basis:300px}}
   .perks2{display:flex;justify-content:space-between;gap:6px;margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
   .perks2 span{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#444;text-align:center;flex:1}
   body.lock{overflow:hidden}
@@ -393,6 +412,7 @@ if(MTA_BN)document.write('<link rel="preload" as="image" type="image/webp" image
   <div class="srch-r" id="srchR"></div>
 </div>
 <main id="main"></main>
+<section class="revs" id="revs" hidden aria-label="Avaliações de clientes"></section>
 
 <div class="info">
   <div class="box">
@@ -869,7 +889,9 @@ function open(id, push=true){
       <a class="order" id="order" href="#"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm4.5 12.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.2s.9 2.5 1 2.7c.1.2 1.8 2.8 4.4 3.9 1.6.7 2.3.8 3.1.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z"/></svg>Encomendar pelo WhatsApp</a>
       <p class="note">Pagamento na entrega em Maputo · Enviamos para todas as províncias</p>
       ${p.mats===false?"":`<div class="perks2"><span>Resistente à água e suor</span><span>Entrega imediata</span><span>Cartão de garantia</span></div>`}
+      <div class="rv" id="rv" hidden></div>
     </div>`;
+  loadProdReviews(p);
   setOrder();
   const g1=sheet.querySelector("#g1");
   if(g1){ const full=new Image(); full.decoding="async"; full.onload=()=>{ if(cur===p) g1.src=full.src; }; full.src=img(p,1); }
@@ -1032,6 +1054,26 @@ function stockUI(){
   if(!STOCK_URL) return;
   fetch(STOCK_URL+(STOCK_URL.includes("?")?"&":"?")+"_="+Date.now()).then(r=>r.ok?r.text():Promise.reject()).then(t=>{
     STK=loadStock(t); try{ localStorage.setItem("mtaStock",JSON.stringify({t:Date.now(),d:STK})); }catch(e){} applyStock();
+  }).catch(()=>{});
+})();
+/* ===== Avaliações ===== */
+const starStr=n=>"★★★★★".slice(0,Math.round(n))+"☆☆☆☆☆".slice(0,5-Math.round(n));
+const rvDate=d=>{ if(!d) return ""; const [y,m]=d.split("-"); return ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][+m-1]+" "+y; };
+const rvWho=r=>`<b>${esc(r.name)}</b>${r.city?` · ${esc(r.city)}`:""}${r.verified?`<span class="vbadge">✓ Compra verificada</span>`:""}`;
+function loadProdReviews(p){
+  fetch("/api/reviews?product="+encodeURIComponent(p.id)).then(r=>r.ok?r.json():null).then(d=>{
+    const el=sheet.querySelector("#rv"); if(!d||!d.n||!el||cur!==p) return;
+    el.innerHTML=`<h3>AVALIAÇÕES</h3><div class="small"><span class="stars">${starStr(d.avg)}</span> ${(+d.avg).toFixed(1).replace(".",",")} · ${d.n} ${d.n===1?"avaliação":"avaliações"}</div>`+d.rows.slice(0,6).map(r=>`<div class="rvi"><span class="stars">${starStr(r.rating)}</span>${r.text?`<p>${esc(r.text)}</p>`:""}<small>${rvWho(r)} · ${rvDate(r.day)}</small></div>`).join("");
+    el.hidden=false;
+  }).catch(()=>{});
+}
+(function(){
+  fetch("/api/reviews").then(r=>r.ok?r.json():null).then(d=>{
+    if(!d||!d.n) return; const el=document.getElementById("revs");
+    el.innerHTML=`<h2>O QUE DIZEM OS CLIENTES</h2><p class="rvsum"><span class="stars">${starStr(d.avg)}</span> ${(+d.avg).toFixed(1).replace(".",",")} · ${d.n} ${d.n===1?"avaliação":"avaliações"}</p>
+      <div class="rvrow">${d.rows.filter(r=>r.text).map(r=>{const p=r.product_id&&ALL[r.product_id];return `<div class="rvc"><span class="stars">${starStr(r.rating)}</span><p>“${esc(r.text)}”</p>${p?`<a class="prod" href="#${p.id}" data-rvp="${p.id}">${esc(nomeCompleto(p))}</a>`:""}<div class="who">${rvWho(r)}</div></div>`;}).join("")}</div>`;
+    el.hidden=false;
+    el.querySelectorAll("[data-rvp]").forEach(a=>a.onclick=e=>{e.preventDefault();open(a.dataset.rvp);});
   }).catch(()=>{});
 })();
 function soldNow(){ return !!cur && (!!cur.soldOut || (cur.mats!==false && (cur.soldOutMats||[]).includes(mat))); }

@@ -29,3 +29,20 @@ Sistema de vendas da loja (Glória Mall) em **mz.mtanation.com/pos**.
 
 ## Teste local
 `wrangler pages dev . --d1 DB=pos-local --port 8788`
+
+## Entregas (motoboy)
+- Separador **Entregas** (todos os papéis). O resumo semanal/mensal e o custo só aparecem a gerente/admin; as ⚙️ Regras só ao admin.
+- **📍 Calcular taxa:**
+  - Pesquisa de endereço (Nominatim), coordenadas coladas ou um toque no mapa (Leaflet + OSM).
+  - Rota pela estrada a partir da loja (OSRM). Sem serviço de rotas, usa linha reta × 1,35.
+  - Taxa = base até X km + valor/km extra, arredondada. Settings: `dlv_base`, `dlv_base_km`, `dlv_km`, `dlv_round`.
+  - Origem da loja em `dlv_origin`; o admin pode corrigi-la com "★ A loja é aqui".
+- Tabela `deliveries`:
+  - Tipo: Entrega / Levantamento / Outro.
+  - Guarda km de ida e `km_total` (ida e volta) e a taxa.
+  - Estado: Pendente / Entregue / Cancelada; `delivered_at` regista a hora.
+- **Vendas com local "Delivery":** criam automaticamente uma entrega Pendente. No checkout, o botão 📍 calcula a taxa e guarda o endereço e os km. Anular a venda cancela a entrega pendente.
+- **Motoboy:** `courier_name` (Azevedo) e `courier_weekly` (2.500 MT).
+  - As semanas vão de segunda a domingo e cada semana conta no mês em que termina.
+  - O resumo alerta para semanas sem voltas.
+  - As semanas antes de `dlv_start`, a data do primeiro uso, ficam fora das contas.

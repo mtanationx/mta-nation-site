@@ -30,6 +30,8 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS reviews(id INTEGER PRIMARY KEY AUTOINCREMENT, product_id TEXT, name TEXT, city TEXT, rating INTEGER NOT NULL, text TEXT, source TEXT, status TEXT NOT NULL DEFAULT 'pending', featured INTEGER NOT NULL DEFAULT 0, sale_id INTEGER, day TEXT, created INTEGER, ip TEXT, by_user INTEGER)`,
   `CREATE INDEX IF NOT EXISTS reviews_prod ON reviews(product_id,status)`,
   `CREATE TABLE IF NOT EXISTS review_photos(review_id INTEGER PRIMARY KEY, data TEXT NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS deliveries(id INTEGER PRIMARY KEY AUTOINCREMENT, day TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'Entrega', sale_id INTEGER, customer TEXT, phone TEXT, address TEXT, lat REAL, lng REAL, km REAL, km_total REAL, fee INTEGER, status TEXT NOT NULL DEFAULT 'Pendente', delivered_at INTEGER, notes TEXT, user_id INTEGER, ts INTEGER)`,
+  `CREATE INDEX IF NOT EXISTS deliveries_day ON deliveries(day)`,
   `CREATE TABLE IF NOT EXISTS cash_moves(id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, day TEXT, type TEXT NOT NULL, amount INTEGER NOT NULL, counted INTEGER, expected INTEGER, user_id INTEGER, notes TEXT)`,
 ];
 let ready = false;
@@ -293,6 +295,12 @@ export async function onRequest(ctx) {
     await db.batch(items.map(i => db.prepare(`INSERT INTO sale_items(sale_id,product_id,name,cor,size,qty,unit_price,list_price) VALUES(?,?,?,?,?,?,?,?)`)
       .bind(saleId, i.product_id, (i.name || "").slice(0, 120), i.cor || "-", i.size || "-", Math.round(i.qty), Math.round(i.unit_price), i.list_price == null ? null : Math.round(i.list_price))));
     await adjustStock(db, user, items.map(i => ({ product_id: i.product_id, cor: i.cor || "-", size: i.size || "-", delta: -Math.round(i.qty) })), `venda #${saleId}`);
+    if ((body.channel || "") === "Delivery") {
+      const q = body.dlv && typeof body.dlv === "object" ? body.dlv : {};
+      const km = +q.km > 0 ? Math.round(+q.km * 10) / 10 : null;
+      await db.prepare(`INSERT INTO deliveries(day,kind,sale_id,customer,phone,address,lat,lng,km,km_total,fee,status,notes,user_id,ts) VALUES(?,?,?,?,?,?,?,?,?,?,?,'Pendente',?,?,?)`)
+        .bind(day, "Entrega", saleId, (body.customer || "").slice(0, 80), (body.phone || "").slice(0, 30), String(q.address || "").slice(0, 300), +q.lat || null, +q.lng || null, km, km ? Math.round(km * 20) / 10 : null, Math.round(+body.delivery || 0), "", user.id, Date.now()).run();
+    }
     const n = await db.prepare(`SELECT COUNT(*) AS n FROM sales WHERE day=? AND id<=?`).bind(day, saleId).first();
     return json({ ok: true, id: saleId, number: n.n, review: `s=${saleId}&k=${reviewToken}` });
   }
@@ -310,6 +318,7 @@ export async function onRequest(ctx) {
     if (s.void) return err("Já anulada");
     await db.prepare(`UPDATE sales SET void=1, void_by=?, void_reason=? WHERE id=?`).bind(user.id, (body.reason || "").slice(0, 200), s.id).run();
     await adjustStock(db, user, s.items.map(i => ({ product_id: i.product_id, cor: i.cor, size: i.size, delta: i.qty })), `anulação #${s.id}`);
+    await db.prepare(`UPDATE deliveries SET status='Cancelada' WHERE sale_id=? AND status='Pendente'`).bind(s.id).run();
     return json({ ok: true });
   }
 
@@ -846,6 +855,56 @@ export async function onRequest(ctx) {
     if (!admin) return err("Só o admin", 403);
     const stmts = Object.entries(body || {}).map(([k, v]) => db.prepare(`INSERT INTO settings(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v`).bind(k, String(v)));
     if (stmts.length) await db.batch(stmts);
+    return json({ ok: true });
+  }
+
+
+  // Entregas (motoboy)
+  if (path === "/deliveries" && m === "GET") {
+    const from = url.searchParams.get("from") || today(), to = url.searchParams.get("to") || today();
+    await db.prepare(`INSERT INTO settings(k,v) VALUES('dlv_start',?) ON CONFLICT(k) DO NOTHING`).bind(today()).run();
+    const start = (await db.prepare(`SELECT v FROM settings WHERE k='dlv_start'`).first()).v;
+    const rows = (await db.prepare(`SELECT d.*, u.name by_name, s.subtotal sale_total, s.void sale_void FROM deliveries d LEFT JOIN users u ON u.id=d.user_id LEFT JOIN sales s ON s.id=d.sale_id WHERE (d.day BETWEEN ? AND ?) OR d.status='Pendente' ORDER BY d.day DESC, d.id DESC`).bind(from, to).all()).results;
+    return json({ rows, start });
+  }
+  const DF = (b, d = {}) => {
+    const km = b.km === "" || b.km == null ? null : Math.round(+String(b.km).replace(",", ".") * 10) / 10;
+    const kt = b.km_total === "" || b.km_total == null ? null : Math.round(+String(b.km_total).replace(",", ".") * 10) / 10;
+    return {
+      day: /^\d{4}-\d{2}-\d{2}$/.test(b.day || "") ? b.day : (d.day || today()),
+      kind: ["Entrega", "Levantamento", "Outro"].includes(b.kind) ? b.kind : (d.kind || "Entrega"),
+      customer: String(b.customer ?? d.customer ?? "").slice(0, 80), phone: String(b.phone ?? d.phone ?? "").slice(0, 30),
+      address: String(b.address ?? d.address ?? "").slice(0, 300), lat: b.lat !== undefined ? (+b.lat || null) : (d.lat ?? null), lng: b.lng !== undefined ? (+b.lng || null) : (d.lng ?? null),
+      km: b.km !== undefined ? (km > 0 ? km : null) : (d.km ?? null), km_total: b.km_total !== undefined ? (kt > 0 ? kt : null) : (d.km_total ?? null),
+      fee: b.fee !== undefined ? (b.fee === "" || b.fee == null ? null : Math.round(+String(b.fee).replace(/\D/g, "") || 0)) : (d.fee ?? null),
+      status: ["Pendente", "Entregue", "Cancelada"].includes(b.status) ? b.status : (d.status || "Pendente"),
+      notes: String(b.notes ?? d.notes ?? "").slice(0, 300),
+    };
+  };
+  if (path === "/deliveries" && m === "POST") {
+    const x = DF(body || {});
+    const dAt = x.status === "Entregue" ? Date.now() : null;
+    const r = await db.prepare(`INSERT INTO deliveries(day,kind,customer,phone,address,lat,lng,km,km_total,fee,status,delivered_at,notes,user_id,ts) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(x.day, x.kind, x.customer, x.phone, x.address, x.lat, x.lng, x.km, x.km_total, x.fee, x.status, dAt, x.notes, user.id, Date.now()).run();
+    return json({ ok: true, id: r.meta.last_row_id });
+  }
+  const dM = path.match(/^\/deliveries\/(\d+)$/);
+  if (dM && m === "PUT") {
+    const cur = await db.prepare(`SELECT * FROM deliveries WHERE id=?`).bind(+dM[1]).first();
+    if (!cur) return err("Entrega não encontrada", 404);
+    if (!mgr && cur.status === "Entregue" && cur.user_id !== user.id) return err("Só a gerência pode alterar entregas já concluídas", 403);
+    const x = DF(body || {}, cur);
+    let dAt = cur.delivered_at;
+    if (x.status === "Entregue" && cur.status !== "Entregue") dAt = Date.now();
+    if (x.status !== "Entregue") dAt = null;
+    if (x.status === "Entregue" && body.delivered_at && mgr) dAt = +body.delivered_at;
+    await db.prepare(`UPDATE deliveries SET day=?,kind=?,customer=?,phone=?,address=?,lat=?,lng=?,km=?,km_total=?,fee=?,status=?,delivered_at=?,notes=? WHERE id=?`)
+      .bind(x.day, x.kind, x.customer, x.phone, x.address, x.lat, x.lng, x.km, x.km_total, x.fee, x.status, dAt, x.notes, +dM[1]).run();
+    return json({ ok: true });
+  }
+  if (dM && m === "DELETE") {
+    if (!mgr) return err("Só a gerência", 403);
+    await db.prepare(`DELETE FROM deliveries WHERE id=?`).bind(+dM[1]).run();
     return json({ ok: true });
   }
 

@@ -204,13 +204,13 @@ function render(){
   if(!S.user){ app.innerHTML=`<div class="login"><div class="lbox"><p>A carregar…</p></div></div>`; boot().then(render).catch(e=>{toast(e.message)}); return; }
   const admin=S.user.role==="admin";
   const mgr=admin||S.user.role==="manager";
-  const tabs=[["vender","Vender"],["fecho","Fecho"]].concat(mgr?[["caixa","Caixa"],["clientes","Clientes"],["campanhas","Marketing"]]:[],[["stock","Stock"]],mgr?[["logistica","Logística"],["ponto","Ponto"],["gastos","Givings"]]:[],admin?[["relatorio","Relatório"],["equipa","Equipa"]]:[]);
+  const tabs=[["vender","Vender"],["fecho","Fecho"],["entregas","Entregas"]].concat(mgr?[["caixa","Caixa"],["clientes","Clientes"],["campanhas","Marketing"]]:[],[["stock","Stock"]],mgr?[["logistica","Logística"],["ponto","Ponto"],["gastos","Givings"]]:[],admin?[["relatorio","Relatório"],["equipa","Equipa"]]:[]);
   app.innerHTML=`<div class="top"><span class="lg">MTA POS</span><div class="nav">${tabs.map(([k,l])=>`<button data-tab="${k}" class="${S.tab===k?"on":""}">${l}</button>`).join("")}</div>
     <div class="who"><button id="clk" title="Marcar entrada/saída">🕘 Ponto</button><span>${esc(S.user.name)}</span><button id="out">Sair</button></div></div><div id="view"></div>`;
   $$("[data-tab]").forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;render();});
   $("#clk").onclick=clockModal;
   $("#out").onclick=async()=>{try{await api("/logout",{method:"POST"})}catch(e){} S.token=null;S.user=null;LS.set("posTok",null);render();};
-  ({vender:vVender,fecho:vFecho,caixa:vCaixa,ponto:vPonto,logistica:vLog,gastos:vGastos,clientes:vClientes,campanhas:vCampanhas,stock:vStock,relatorio:vRel,equipa:vEquipa})[S.tab]($("#view"));
+  ({entregas:vEntregas,vender:vVender,fecho:vFecho,caixa:vCaixa,ponto:vPonto,logistica:vLog,gastos:vGastos,clientes:vClientes,campanhas:vCampanhas,stock:vStock,relatorio:vRel,equipa:vEquipa})[S.tab]($("#view"));
 }
 
 /* ----- login ----- */
@@ -325,7 +325,7 @@ async function checkout(){
       <label class="l">Local da venda</label><div class="opts">${["Loja","Delivery","Evento"].map(c=>`<button class="opt ${f.channel===c?"on":""}" data-ch="${c}">${c}</button>`).join("")}</div>
       <label class="l">Veio de onde?</label><div class="opts">${camps.map(c=>`<button class="opt ${f.src==="c"+c.id?"on":""}" data-src="c${c.id}">📣 ${esc(c.name)}</button>`).join("")}${SOURCES.map(x=>`<button class="opt ${f.src===x?"on":""}" data-src="${esc(x)}">${esc(x)}</button>`).join("")}</div>
       <label class="l">Meio de pagamento</label><div class="pay">${PAYS.map(c=>`<button class="opt ${f.payment===c?"on":""}" data-py="${c}">${c}</button>`).join("")}</div>
-      <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Transporte (MT)</label><input class="f" id="dl" inputmode="numeric" value="${f.delivery||""}" placeholder="0"></div>
+      <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Transporte (MT)</label><div class="row" style="gap:6px"><input class="f" id="dl" inputmode="numeric" value="${f.delivery||""}" placeholder="0" style="flex:1">${f.channel==="Delivery"?`<button class="btn sec" id="dlq" title="Calcular pela distância">📍</button>`:""}</div>${f.dlv?`<p class="small muted" style="margin:4px 0 0">${esc(f.dlv.address||"")} · ${kmf(f.dlv.km)}</p>`:""}</div>
       ${admin?`<div style="flex:1"><label class="l">Vendido por</label><select class="f" id="us">${S.users.filter(u=>u.active).map(u=>`<option value="${u.id}" ${u.id===f.user_id?"selected":""}>${esc(u.name)}</option>`).join("")}</select></div>`:""}</div>
       <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Nome do cliente</label><input class="f" id="cn" value="${esc(f.customer)}"></div><div style="flex:1"><label class="l">Telefone</label><input class="f" id="cp" inputmode="tel" value="${esc(f.phone)}" placeholder="84 000 0000"><p class="small" id="cperr" style="color:var(--red);font-weight:600;margin:6px 0 0"></p></div></div>
       <p class="small" id="cinfo" style="margin:6px 0 0;color:var(--grn);font-weight:600"></p>
@@ -338,6 +338,7 @@ async function checkout(){
     $$("[data-py]",m).forEach(b=>b.onclick=()=>{keep();f.payment=b.dataset.py;draw();});
     $$("[data-src]",m).forEach(b=>b.onclick=()=>{keep();f.src=b.dataset.src;draw();});
     $("#dl",m).oninput=()=>{keep();$("#tp",m).textContent=fmt(sub+(f.delivery||0));};
+    const dlq=$("#dlq",m); if(dlq) dlq.onclick=()=>{ keep(); quoteModal({address:f.dlv?f.dlv.address:"",lat:f.dlv&&f.dlv.lat,lng:f.dlv&&f.dlv.lng,onUse:q=>{ f.dlv=q; f.delivery=q.fee; draw(); }}); };
     ["#cn","#nt"].forEach(x=>$(x,m).oninput=keep);
     const phv=()=>{ const c=phoneCheck($("#cp",m).value); $("#cperr",m).textContent=c.ok?"":c.msg; $("#cp",m).style.borderColor=c.ok?"":"var(--red)"; return c; };
     const look=async()=>{ keep(); const ci=$("#cinfo",m); const c=phv(); if(!c.ok||c.empty){ci.textContent="";return;}
@@ -517,6 +518,169 @@ function logModal(r,after){
   const ld=$("#ldel",m); if(ld) ld.onclick=async()=>{ if(!confirmBox("Apagar esta encomenda?")) return; try{ await api("/logistics/"+r.id,{method:"DELETE"}); m.remove(); toast("Encomenda apagada"); after(); }catch(e){toast(e.message);} };
   $("[data-x]",m).onclick=()=>m.remove(); m.onclick=e=>{if(e.target===m)m.remove();};
   document.body.appendChild(m);
+}
+
+/* ----- entregas (motoboy) ----- */
+const DKIND=["Entrega","Levantamento","Outro"];
+const DSET=()=>{ const s=S.settings||{}; const o=String(s.dlv_origin||"-25.9616,32.6045").split(",").map(Number);
+  return {lat:o[0],lng:o[1],base:+(s.dlv_base??100),baseKm:+(s.dlv_base_km??3),perKm:+(s.dlv_km??25),round:+(s.dlv_round??50),courier:s.courier_name||"Azevedo",weekly:+(s.courier_weekly??2500)}; };
+function dlvFee(km){ const c=DSET(); if(!(km>0)) return 0; let f=c.base+Math.max(0,Math.ceil(km-c.baseKm))*c.perKm; if(c.round>0) f=Math.ceil(f/c.round)*c.round; return f; }
+const kmf=n=>n==null||n===""?"—":(Math.round(n*10)/10).toString().replace(".",",")+" km";
+function loadLeaflet(){ if(window.L) return Promise.resolve(); if(S._lfl) return S._lfl;
+  S._lfl=new Promise((res,rej)=>{ const c=document.createElement("link"); c.rel="stylesheet"; c.href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(c);
+    const s=document.createElement("script"); s.src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; s.onload=()=>res(); s.onerror=()=>{S._lfl=null;rej(new Error("Não foi possível carregar o mapa (internet?)"));}; document.head.appendChild(s); });
+  return S._lfl; }
+function haversine(a,b){ const R=6371,t=x=>x*Math.PI/180,dLa=t(b.lat-a.lat),dLo=t(b.lng-a.lng); const h=Math.sin(dLa/2)**2+Math.cos(t(a.lat))*Math.cos(t(b.lat))*Math.sin(dLo/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
+async function routeKm(a,b){
+  try{ const r=await fetch(`https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson`); const d=await r.json();
+    if(d.routes&&d.routes[0]) return {km:d.routes[0].distance/1000,min:Math.round(d.routes[0].duration/60),geo:d.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]),real:true}; }catch(e){}
+  return {km:haversine(a,b)*1.35,min:null,geo:[[a.lat,a.lng],[b.lat,b.lng]],real:false}; }
+function weekStart(day){ const d=new Date(day+"T12:00:00Z"); const w=(d.getUTCDay()+6)%7; d.setUTCDate(d.getUTCDate()-w); return d.toISOString().slice(0,10); }
+function addDays(day,n){ const d=new Date(day+"T12:00:00Z"); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); }
+const dm=day=>{const [y,m,d]=day.split("-");return `${d}/${m}`;};
+
+function quoteModal(o={}){
+  const C=DSET(), admin=S.user.role==="admin";
+  let dest=o.lat&&o.lng?{lat:+o.lat,lng:+o.lng}:null, addr=o.address||"", res=null, map,mk,line,store;
+  const m=document.createElement("div"); m.className="mod";
+  m.innerHTML=`<div class="mbox" style="max-width:760px"><div class="row" style="justify-content:space-between"><h2>📍 Calcular taxa de entrega</h2><button class="qbtn" data-x>✕</button></div>
+    <div class="row" style="gap:8px"><input class="f" id="qa" placeholder="Bairro, rua, ponto de referência… ou cola o link de localização do WhatsApp" value="${esc(addr)}" style="flex:1"><button class="btn" id="qs">Procurar</button></div>
+    <div id="qr"></div>
+    <p class="small muted" style="margin:8px 0">Ou toca no mapa onde fica o cliente. ★ = a loja (Glória Mall).</p>
+    <div id="qm" style="height:340px;border-radius:12px;overflow:hidden;background:#eef"></div>
+    <div id="qo" style="margin-top:12px"></div></div>`;
+  document.body.appendChild(m);
+  $("[data-x]",m).onclick=()=>m.remove(); m.onclick=e=>{if(e.target===m)m.remove();};
+  const out=$("#qo",m);
+  const showRes=()=>{ if(!res){out.innerHTML="";return;}
+    const fee=dlvFee(res.km);
+    out.innerHTML=`<div class="kpis" style="margin-bottom:10px"><div class="kpi" style="border-color:var(--ink)"><small>Taxa sugerida</small><b>${fmt(fee)}</b><div class="small muted">${C.base} MT até ${C.baseKm} km + ${C.perKm} MT/km</div></div>
+      <div class="kpi"><small>Distância ${res.real?"(estrada)":"(estimada)"}</small><b>${kmf(res.km)}</b><div class="small muted">ida e volta ${kmf(res.km*2)}${res.min?` · ~${res.min} min`:""}</div></div></div>
+      ${!res.real?`<p class="small" style="color:#8a6d00">Sem ligação ao serviço de rotas: distância estimada em linha reta × 1,35.</p>`:""}
+      <div class="row" style="flex-wrap:wrap;gap:8px">${o.onUse?`<button class="btn grn" id="quse" style="flex:1">Usar ${fmt(fee)}</button>`:`<button class="btn sec" id="qcp">📋 Copiar mensagem</button><button class="btn sec" id="qwa">WhatsApp</button><button class="btn grn" id="qreg" style="flex:1">+ Registar entrega</button>`}
+      ${admin?`<button class="btn sec" id="qst" title="Só se a estrela estiver no sítio errado">★ A loja é aqui</button>`:""}</div>`;
+    const q={address:$("#qa",m).value.trim()||addr,lat:dest.lat,lng:dest.lng,km:Math.round(res.km*10)/10,fee};
+    const msg=`Olá! 😊 A taxa de entrega para ${q.address||"a sua localização"} é de *${fmt(fee)}* (≈ ${kmf(res.km)} da nossa loja no Glória Mall).\n\nMTA Nation · mz.mtanation.com`;
+    if(o.onUse) $("#quse",m).onclick=()=>{ o.onUse(q); m.remove(); };
+    else{ $("#qcp",m).onclick=async()=>{ try{await navigator.clipboard.writeText(msg);toast("Mensagem copiada");}catch(e){prompt("Copia a mensagem:",msg);} };
+      $("#qwa",m).onclick=()=>window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");
+      $("#qreg",m).onclick=()=>{ m.remove(); dlvModal(null,o.after||(()=>{}),{...q,fee}); }; }
+    const st=$("#qst",m); if(st) st.onclick=async()=>{ if(!confirmBox("Mudar a posição da loja para o ponto marcado no mapa?")) return; const v=`${dest.lat.toFixed(5)},${dest.lng.toFixed(5)}`; try{ await api("/settings",{method:"PUT",body:{dlv_origin:v}}); S.settings.dlv_origin=v; toast("Posição da loja atualizada"); m.remove(); }catch(e){toast(e.message);} };
+  };
+  const setDest=async(lat,lng,label)=>{ dest={lat,lng}; if(label!=null){addr=label; $("#qa",m).value=label;}
+    if(map){ if(mk) mk.setLatLng([lat,lng]); else mk=L.marker([lat,lng],{icon:L.divIcon({className:"",html:'<div style="font-size:30px;line-height:30px">📍</div>',iconSize:[30,30],iconAnchor:[15,29]})}).addTo(map); }
+    out.innerHTML=`<p class="small muted">A calcular a rota…</p>`;
+    res=await routeKm({lat:C.lat,lng:C.lng},dest);
+    if(map){ if(line) line.remove(); line=L.polyline(res.geo,{color:"#2E7D4F",weight:4}).addTo(map); map.fitBounds(line.getBounds(),{padding:[30,30]}); }
+    showRes(); };
+  const search=async()=>{ const q=$("#qa",m).value.trim(); if(!q) return; const r=$("#qr",m);
+    const c=q.match(/(-?\d{1,2}\.\d{3,})\s*,\s*(-?\d{1,3}\.\d{3,})/); if(c){ r.innerHTML=""; setDest(+c[1],+c[2],null); return; }
+    r.innerHTML=`<p class="small muted">A procurar…</p>`;
+    try{ const d=await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=mz&viewbox=32.30,-25.70,32.95,-26.25&bounded=1&accept-language=pt&q=${encodeURIComponent(q)}`)).json();
+      if(!d.length){ r.innerHTML=`<p class="small" style="color:var(--red)">Não encontrei. Tenta só o bairro (ex: "Sommerschield", "Matola Rio") ou toca no mapa.</p>`; return; }
+      r.innerHTML=`<div class="opts" style="margin-top:8px">${d.map((x,i)=>`<button class="opt" data-gi="${i}" style="text-align:left">${esc(x.display_name.split(",").slice(0,3).join(","))}</button>`).join("")}</div>`;
+      $$("[data-gi]",r).forEach(b=>b.onclick=()=>{ const x=d[+b.dataset.gi]; r.innerHTML=""; setDest(+x.lat,+x.lon,x.display_name.split(",").slice(0,3).join(",")); });
+    }catch(e){ r.innerHTML=`<p class="small" style="color:var(--red)">Pesquisa indisponível. Toca no mapa.</p>`; } };
+  $("#qs",m).onclick=search; $("#qa",m).onkeydown=e=>{ if(e.key==="Enter") search(); };
+  loadLeaflet().then(()=>{ map=L.map($("#qm",m)).setView([C.lat,C.lng],12);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+    store=L.marker([C.lat,C.lng],{icon:L.divIcon({className:"",html:'<div style="font-size:26px;line-height:26px;text-shadow:0 0 3px #fff">★</div>',iconSize:[26,26],iconAnchor:[13,13]})}).addTo(map).bindTooltip("MTA · Glória Mall");
+    map.on("click",e=>setDest(e.latlng.lat,e.latlng.lng,null));
+    if(dest) setDest(dest.lat,dest.lng,null);
+  }).catch(e=>{ $("#qm",m).innerHTML=`<p class="empty">${esc(e.message)}</p>`; });
+}
+
+function dlvModal(r,after,pre){
+  const isNew=!r, mgr=S.user.role==="admin"||S.user.role==="manager";
+  r=r||{day:S.today,kind:"Entrega",customer:"",phone:"",address:"",lat:null,lng:null,km:null,km_total:null,fee:null,status:"Pendente",notes:"",...(pre||{})};
+  if(pre&&pre.km&&!r.km_total) r.km_total=Math.round(pre.km*20)/10;
+  let kind=r.kind, st=r.status, geo={lat:r.lat,lng:r.lng}, ktTouched=!!(r.km_total&&r.km&&Math.abs(r.km_total-r.km*2)>0.05);
+  const m=document.createElement("div"); m.className="mod";
+  m.innerHTML=`<div class="mbox"><div class="row" style="justify-content:space-between"><h2>${isNew?"Nova entrega":"Entrega"}${r.sale_id?` <span class="tag">venda #${r.sale_id}</span>`:""}</h2><button class="qbtn" data-x>✕</button></div>
+    <label class="l">Tipo</label><div class="opts">${DKIND.map(x=>`<button class="opt ${kind===x?"on":""}" data-k="${x}">${x==="Entrega"?"🛵 Entrega a cliente":x==="Levantamento"?"📦 Levantamento":"Outro serviço"}</button>`).join("")}</div>
+    <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Data</label><input class="f" type="date" id="d_day" value="${esc(r.day)}"></div><div style="flex:1"><label class="l">${kind==="Levantamento"?"Onde / quem":"Cliente"}</label><input class="f" id="d_customer" value="${esc(r.customer||"")}"></div></div>
+    <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Telefone</label><input class="f" id="d_phone" inputmode="tel" value="${esc(r.phone||"")}"></div><div style="flex:1"><label class="l">Taxa cobrada ao cliente (MT)</label><input class="f" id="d_fee" inputmode="numeric" value="${r.fee??""}" placeholder="${kind==="Entrega"?"":"0 se não se cobra"}"></div></div>
+    <label class="l">Endereço</label><div class="row" style="gap:8px"><input class="f" id="d_address" value="${esc(r.address||"")}" style="flex:1"><button class="btn sec" id="d_map">📍 Mapa</button></div>
+    <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Km (ida)</label><input class="f" id="d_km" inputmode="decimal" value="${r.km??""}"></div><div style="flex:1"><label class="l">Km percorridos (ida e volta)</label><input class="f" id="d_kt" inputmode="decimal" value="${r.km_total??""}"></div></div>
+    <label class="l">Estado</label><div class="opts">${["Pendente","Entregue","Cancelada"].map(x=>`<button class="opt ${st===x?"on":""}" data-s="${x}">${x==="Entregue"?"✓ Feita":x}</button>`).join("")}</div>
+    ${r.delivered_at?`<p class="small muted">Marcada como feita em ${dmy(mzDayJS(r.delivered_at))} às ${hm(r.delivered_at)}</p>`:""}
+    <label class="l">Notas</label><input class="f" id="d_notes" value="${esc(r.notes||"")}">
+    ${!isNew&&st==="Pendente"?`<button class="btn grn" id="d_done" style="width:100%;margin-top:14px">✓ ${DSET().courier} fez esta ${kind==="Entrega"?"entrega":"volta"} agora</button>`:""}
+    <button class="btn" id="d_sv" style="width:100%;margin-top:8px">Guardar</button>${!isNew&&mgr?`<button class="btn sec" id="d_del" style="width:100%;margin-top:8px;color:var(--red)">Apagar</button>`:""}</div>`;
+  const km=$("#d_km",m), kt=$("#d_kt",m);
+  km.oninput=()=>{ const v=+km.value.replace(",","."); if(!ktTouched) kt.value=v>0?Math.round(v*20)/10:""; };
+  kt.oninput=()=>{ktTouched=true;};
+  $$("[data-k]",m).forEach(b=>b.onclick=()=>{kind=b.dataset.k;$$("[data-k]",m).forEach(x=>x.classList.toggle("on",x===b));});
+  $$("[data-s]",m).forEach(b=>b.onclick=()=>{st=b.dataset.s;$$("[data-s]",m).forEach(x=>x.classList.toggle("on",x===b));});
+  $("#d_map",m).onclick=()=>quoteModal({address:$("#d_address",m).value,lat:geo.lat,lng:geo.lng,onUse:q=>{ geo={lat:q.lat,lng:q.lng}; if(q.address) $("#d_address",m).value=q.address; km.value=q.km; if(!ktTouched) kt.value=Math.round(q.km*20)/10; if(!$("#d_fee",m).value&&kind==="Entrega") $("#d_fee",m).value=q.fee; }});
+  const body=()=>({day:$("#d_day",m).value,kind,customer:$("#d_customer",m).value.trim(),phone:$("#d_phone",m).value.trim(),address:$("#d_address",m).value.trim(),lat:geo.lat,lng:geo.lng,km:km.value.trim(),km_total:kt.value.trim(),fee:$("#d_fee",m).value.trim(),status:st,notes:$("#d_notes",m).value.trim()});
+  const save=async b=>{ try{ if(isNew) await api("/deliveries",{method:"POST",body:b}); else await api("/deliveries/"+r.id,{method:"PUT",body:b}); m.remove(); toast("Guardado"); after(); }catch(e){toast(e.message);} };
+  $("#d_sv",m).onclick=()=>save(body());
+  const dd=$("#d_done",m); if(dd) dd.onclick=()=>{ const b=body(); b.status="Entregue"; b.day=S.today; save(b); };
+  const dl=$("#d_del",m); if(dl) dl.onclick=async()=>{ if(!confirmBox("Apagar este registo?")) return; try{ await api("/deliveries/"+r.id,{method:"DELETE"}); m.remove(); toast("Apagado"); after(); }catch(e){toast(e.message);} };
+  $("[data-x]",m).onclick=()=>m.remove(); m.onclick=e=>{if(e.target===m)m.remove();};
+  document.body.appendChild(m);
+}
+const mzDayJS=ts=>new Date(ts+2*3600e3).toISOString().slice(0,10);
+
+function dlvRulesModal(after){
+  const C=DSET(); const m=document.createElement("div"); m.className="mod";
+  m.innerHTML=`<div class="mbox"><div class="row" style="justify-content:space-between"><h2>⚙️ Regras de entrega</h2><button class="qbtn" data-x>✕</button></div>
+    <p class="small muted">Taxa ao cliente = base até X km + valor por cada km a mais, arredondado para cima.</p>
+    <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Taxa base (MT)</label><input class="f" id="r_base" inputmode="numeric" value="${C.base}"></div><div style="flex:1"><label class="l">Incluída até (km)</label><input class="f" id="r_bkm" inputmode="decimal" value="${C.baseKm}"></div></div>
+    <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Por km a mais (MT)</label><input class="f" id="r_km" inputmode="numeric" value="${C.perKm}"></div><div style="flex:1"><label class="l">Arredondar a (MT)</label><input class="f" id="r_rd" inputmode="numeric" value="${C.round}"></div></div>
+    <p class="small muted" id="r_ex"></p>
+    <div class="row" style="gap:10px"><div style="flex:1"><label class="l">Motoboy</label><input class="f" id="r_cn" value="${esc(C.courier)}"></div><div style="flex:1"><label class="l">Pagamento semanal (MT)</label><input class="f" id="r_wk" inputmode="numeric" value="${C.weekly}"></div></div>
+    <button class="btn" id="r_sv" style="width:100%;margin-top:14px">Guardar</button></div>`;
+  const ex=()=>{ const b=+$("#r_base",m).value||0,bk=+$("#r_bkm",m).value.replace(",",".")||0,pk=+$("#r_km",m).value||0,rd=+$("#r_rd",m).value||0; const f=k=>{let v=b+Math.max(0,Math.ceil(k-bk))*pk; if(rd>0) v=Math.ceil(v/rd)*rd; return v;}; $("#r_ex",m).textContent=`Exemplos: 2 km → ${fmt(f(2))} · 5 km → ${fmt(f(5))} · 10 km → ${fmt(f(10))} · 20 km → ${fmt(f(20))}`; };
+  $$("input",m).forEach(i=>i.oninput=ex); ex();
+  $("#r_sv",m).onclick=async()=>{ const b={dlv_base:+$("#r_base",m).value||0,dlv_base_km:+$("#r_bkm",m).value.replace(",",".")||0,dlv_km:+$("#r_km",m).value||0,dlv_round:+$("#r_rd",m).value||0,courier_name:$("#r_cn",m).value.trim()||"Motoboy",courier_weekly:+$("#r_wk",m).value.replace(/\D/g,"")||0};
+    try{ await api("/settings",{method:"PUT",body:b}); Object.assign(S.settings,b); m.remove(); toast("Regras guardadas"); after(); }catch(e){toast(e.message);} };
+  $("[data-x]",m).onclick=()=>m.remove(); m.onclick=e=>{if(e.target===m)m.remove();};
+  document.body.appendChild(m);
+}
+
+async function vEntregas(v){
+  const mgr=S.user.role==="admin"||S.user.role==="manager", admin=S.user.role==="admin", C=DSET();
+  S.dm=S.dm||S.today.slice(0,7);
+  const [y,mo]=S.dm.split("-").map(Number), first=`${S.dm}-01`, last=new Date(Date.UTC(y,mo,0)).toISOString().slice(0,10);
+  const from=weekStart(first), to=addDays(weekStart(last),6);
+  v.innerHTML=`<div class="wrap"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><h2 style="margin:0;font-size:18px">Entregas · ${esc(C.courier)}</h2>
+    <div class="row" style="flex-wrap:wrap">${mgr?`<input type="month" class="f" id="dmo" value="${S.dm}" style="width:auto">`:""}${admin?`<button class="btn sec" id="drl">⚙️ Regras</button>`:""}<button class="btn sec" id="dnew">+ Registar</button><button class="btn" id="dq">📍 Calcular taxa</button></div></div><div id="db"><p class="empty">A carregar…</p></div></div>`;
+  const re=()=>vEntregas(v);
+  $("#dq").onclick=()=>quoteModal({after:re}); $("#dnew").onclick=()=>dlvModal(null,re);
+  const dmo=$("#dmo"); if(dmo) dmo.onchange=e=>{S.dm=e.target.value;re();};
+  const drl=$("#drl"); if(drl) drl.onclick=()=>dlvRulesModal(re);
+  let rows,start; try{ const d=await api(`/deliveries?from=${from}&to=${to}`); rows=d.rows; start=d.start||S.today; const mn=rows.reduce((a,r)=>r.day<a?r.day:a,start); start=weekStart(mn); }catch(e){ $("#db").innerHTML=`<p class="empty">${esc(e.message)}</p>`; return; }
+  const done=rows.filter(r=>r.status==="Entregue"), pend=rows.filter(r=>r.status==="Pendente");
+  const kmOf=r=>r.km_total!=null?r.km_total:(r.km!=null?r.km*2:0);
+  // semanas
+  const weeks=[]; for(let w=from; w<=to; w=addDays(w,7)){ const e=addDays(w,6); const rs=done.filter(r=>r.day>=w&&r.day<=e);
+    weeks.push({w,e,n:rs.length,ent:rs.filter(r=>r.kind==="Entrega").length,lev:rs.filter(r=>r.kind!=="Entrega").length,km:rs.reduce((a,r)=>a+kmOf(r),0),fee:rs.reduce((a,r)=>a+(r.fee||0),0),cur:S.today>=w&&S.today<=e,fut:w>S.today,pre:e<start}); }
+  const mRows=done.filter(r=>r.day>=first&&r.day<=last), mN=mRows.length, mKm=mRows.reduce((a,r)=>a+kmOf(r),0), mFee=mRows.reduce((a,r)=>a+(r.fee||0),0);
+  const payWeeks=weeks.filter(w=>w.e>=first&&w.e<=last&&!w.fut&&!w.pre), mPay=payWeeks.length*C.weekly;
+  const zero=payWeeks.filter(w=>!w.n&&!w.cur);
+  const avgKm=mRows.filter(r=>r.km>0); const avgKmV=avgKm.length?avgKm.reduce((a,r)=>a+r.km,0)/avgKm.length:null;
+  const tag=st=>`<span class="tag" style="${st==="Entregue"?"background:#e6f4ea;color:var(--grn)":st==="Pendente"?"background:#fff3cd;color:#8a6d00":"background:#eee;color:#777"}">${st==="Entregue"?"✓ Feita":esc(st)}</span>`;
+  const row=r=>`<tr data-d="${r.id}" style="cursor:pointer"><td class="small">${dmy(r.day)}${r.delivered_at?`<div class="muted">${hm(r.delivered_at)}</div>`:""}</td><td><b>${esc(r.customer||"—")}</b> ${r.kind!=="Entrega"?`<span class="tag">${esc(r.kind)}</span>`:""}${r.sale_id?` <span class="tag">venda #${r.sale_id}</span>`:""}<div class="small muted">${esc(r.address||"sem endereço")}</div></td><td class="small">${kmf(r.km)}${r.km_total!=null||r.km!=null?`<div class="muted">↔ ${kmf(kmOf(r))}</div>`:""}</td><td class="fmt">${r.fee!=null?fmt(r.fee):"—"}</td><td>${tag(r.status)}${r.status==="Pendente"?`<div><button class="btn grn" data-ok="${r.id}" style="padding:5px 10px;font-size:12px;margin-top:6px">✓ Feita</button></div>`:""}</td></tr>`;
+  const tbl=rs=>`<div class="card" style="overflow-x:auto"><table class="t"><tr><th>Data</th><th>Cliente / local</th><th>Km</th><th>Taxa</th><th>Estado</th></tr>${rs.map(row).join("")}</table></div>`;
+  $("#db").innerHTML=`${mgr?`<div class="kpis" style="margin-top:12px">
+      <div class="kpi" style="border-color:var(--ink)"><small>Feitas no mês</small><b>${mN}</b><div class="small muted">${mRows.filter(r=>r.kind==="Entrega").length} entregas · ${mRows.filter(r=>r.kind!=="Entrega").length} levantamentos/outros</div></div>
+      <div class="kpi"><small>Km percorridos</small><b>${kmf(mKm)}</b><div class="small muted">${avgKmV?`média ${kmf(avgKmV)} por destino`:"ida e volta"}</div></div>
+      <div class="kpi"><small>Pago a ${esc(C.courier)}</small><b>${fmt(mPay)}</b><div class="small muted">${payWeeks.length} semanas × ${fmt(C.weekly)}</div></div>
+      <div class="kpi"><small>Custo real</small><b>${mN?fmt(mPay/mN):"—"}</b><div class="small muted">por volta${mKm?` · ${fmt(mPay/mKm)}/km`:""}</div></div>
+      <div class="kpi"><small>Taxas cobradas</small><b>${fmt(mFee)}</b><div class="small muted" style="color:${mFee-mPay>=0?"var(--grn)":"var(--red)"}">${mFee-mPay>=0?"+":"−"} ${fmt(Math.abs(mFee-mPay))} vs. pagamento</div></div></div>
+    ${zero.length?`<div class="card" style="background:#fde8e8;border-color:#f5c2c2;margin-bottom:12px"><b style="color:var(--red)">⚠️ ${zero.length===1?"1 semana":zero.length+" semanas"} sem nenhuma entrega registada</b><div class="small">${zero.map(w=>`${dm(w.w)}–${dm(w.e)}`).join(" · ")}. Confirma antes de pagar.</div></div>`:""}
+    <div class="sec-h"><h3 class="mont">POR SEMANA</h3><span class="small muted">a semana conta no mês em que termina (domingo)</span></div>
+    <div class="card" style="overflow-x:auto"><table class="t"><tr><th>Semana</th><th>Voltas</th><th>Entregas</th><th>Levant./outros</th><th>Km</th><th>Taxas cobradas</th><th>Custo por volta</th></tr>
+      ${weeks.map(w=>`<tr style="${w.fut||w.pre?"opacity:.45":""}${!w.n&&!w.cur&&!w.fut&&!w.pre?";background:#fdf2f2":""}"><td class="small"><b>${dm(w.w)} – ${dm(w.e)}</b>${w.cur?` <span class="tag">em curso</span>`:""}${w.pre?`<div class="muted">antes do registo</div>`:w.e<first||w.e>last?`<div class="muted">conta noutro mês</div>`:""}</td><td><b>${w.n}</b></td><td>${w.ent}</td><td>${w.lev}</td><td>${kmf(w.km)}</td><td class="fmt">${fmt(w.fee)}</td><td class="fmt">${w.fut||w.pre?"—":w.n?fmt(C.weekly/w.n):`<span style="color:var(--red)">${fmt(C.weekly)} sem voltas</span>`}</td></tr>`).join("")}</table></div>`:""}
+    <div class="sec-h"><h3 class="mont">POR FAZER (${pend.length})</h3></div>${pend.length?tbl(pend):`<p class="empty">Nenhuma entrega pendente.</p>`}
+    <div class="sec-h"><h3 class="mont">FEITAS</h3></div>${done.length?tbl(done.filter(r=>mgr||r.day>=addDays(S.today,-14))):`<p class="empty">Nada registado neste período.</p>`}
+    <p class="small muted" style="margin-top:14px">Regra atual: ${fmt(C.base)} até ${C.baseKm} km + ${fmt(C.perKm)} por km a mais${C.round?`, arredondado a ${C.round} MT`:""}. As vendas com local “Delivery” aparecem aqui sozinhas como “Por fazer”.</p>`;
+  $$("[data-d]").forEach(t=>t.onclick=e=>{ if(e.target.closest("[data-ok]")) return; dlvModal(rows.find(r=>r.id===+t.dataset.d),re); });
+  $$("[data-ok]").forEach(b=>b.onclick=async e=>{ e.stopPropagation(); const r=rows.find(x=>x.id===+b.dataset.ok);
+    if(!(r.km>0)&&!(r.km_total>0)&&!confirmBox("Esta entrega não tem km. Marcar como feita mesmo assim? (Podes abrir e usar 📍 Mapa para calcular.)")) return;
+    try{ await api("/deliveries/"+r.id,{method:"PUT",body:{status:"Entregue",day:S.today}}); toast("Marcada como feita"); re(); }catch(err){toast(err.message);} });
 }
 
 /* ----- gastos mensais ----- */

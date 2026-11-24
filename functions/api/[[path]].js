@@ -38,7 +38,7 @@ let ready = false;
 async function init(db) {
   if (ready) return;
   await db.batch(SCHEMA.map(s => db.prepare(s)));
-  for (const q of [`ALTER TABLE expenses ADD COLUMN paid_cash INTEGER NOT NULL DEFAULT 1`, `ALTER TABLE sales ADD COLUMN customer_id INTEGER`, `ALTER TABLE sales ADD COLUMN campaign_id INTEGER`, `ALTER TABLE sales ADD COLUMN source TEXT`, `ALTER TABLE logistics ADD COLUMN pay_method TEXT`, `ALTER TABLE logistics ADD COLUMN pickup_method TEXT`, `ALTER TABLE giving ADD COLUMN status TEXT NOT NULL DEFAULT 'Pago'`, `ALTER TABLE users ADD COLUMN ot_rate INTEGER NOT NULL DEFAULT 0`, `ALTER TABLE sales ADD COLUMN discount INTEGER NOT NULL DEFAULT 0`, `ALTER TABLE sales ADD COLUMN review_token TEXT`, `ALTER TABLE reviews ADD COLUMN has_photo INTEGER NOT NULL DEFAULT 0`]) { try { await db.prepare(q).run(); } catch (e) { /* já existe */ } }
+  for (const q of [`ALTER TABLE expenses ADD COLUMN paid_cash INTEGER NOT NULL DEFAULT 1`, `ALTER TABLE sales ADD COLUMN customer_id INTEGER`, `ALTER TABLE sales ADD COLUMN campaign_id INTEGER`, `ALTER TABLE sales ADD COLUMN source TEXT`, `ALTER TABLE logistics ADD COLUMN pay_method TEXT`, `ALTER TABLE logistics ADD COLUMN pickup_method TEXT`, `ALTER TABLE giving ADD COLUMN status TEXT NOT NULL DEFAULT 'Pago'`, `ALTER TABLE users ADD COLUMN ot_rate INTEGER NOT NULL DEFAULT 0`, `ALTER TABLE sales ADD COLUMN discount INTEGER NOT NULL DEFAULT 0`, `ALTER TABLE sales ADD COLUMN review_token TEXT`, `ALTER TABLE reviews ADD COLUMN has_photo INTEGER NOT NULL DEFAULT 0`, `ALTER TABLE reviews ADD COLUMN products TEXT`, `ALTER TABLE reviews ADD COLUMN photo_of INTEGER`]) { try { await db.prepare(q).run(); } catch (e) { /* já existe */ } }
   try { await db.prepare(`CREATE INDEX IF NOT EXISTS sales_cust ON sales(customer_id)`).run(); } catch (e) {}
   ready = true;
 }
@@ -182,7 +182,7 @@ export async function onRequest(ctx) {
   }
   const rpM = path.match(/^\/reviews\/(\d+)\/photo$/);
   if (rpM && m === "GET") {
-    const r = await db.prepare(`SELECT p.data FROM review_photos p JOIN reviews r ON r.id=p.review_id WHERE p.review_id=? AND (r.status='approved' OR ?)`).bind(+rpM[1], url.searchParams.get("admin") ? 1 : 0).first();
+    const r = await db.prepare(`SELECT p.data FROM reviews r JOIN review_photos p ON p.review_id=COALESCE(r.photo_of,r.id) WHERE r.id=? AND (r.status='approved' OR ?)`).bind(+rpM[1], url.searchParams.get("admin") ? 1 : 0).first();
     if (!r) return new Response("", { status: 404 });
     const mm = /^data:(image\/[a-z]+);base64,(.*)$/.exec(r.data); if (!mm) return new Response("", { status: 404 });
     const bin = Uint8Array.from(atob(mm[2]), c => c.charCodeAt(0));
@@ -216,13 +216,11 @@ export async function onRequest(ctx) {
     if (already.n) return err("Esta compra já foi avaliada. Obrigado!");
     const name = String(body.name || "").trim().slice(0, 40), city = String(body.city || "").trim().slice(0, 40);
     if (!name) return err("Escreve o teu nome");
-    const list = (Array.isArray(body.reviews) ? body.reviews : []).filter(r => +r.rating >= 1 && +r.rating <= 5).slice(0, 10);
-    if (!list.length) return err("Dá pelo menos uma avaliação");
+    const rating = Math.round(+body.rating || 0); if (rating < 1 || rating > 5) return err("Toca nas estrelas para avaliar");
+    const prods = (await db.prepare(`SELECT DISTINCT product_id FROM sale_items WHERE sale_id=?`).bind(s.id).all()).results.map(r => r.product_id).filter(Boolean);
     const ip = req.headers.get("cf-connecting-ip") || "";
-    for (const r of list) {
-      const ins = await db.prepare(`INSERT INTO reviews(product_id,name,city,rating,text,source,status,sale_id,day,created,ip) VALUES(?,?,?,?,?,'Site','pending',?,?,?,?)`).bind(r.product_id || null, name, city, Math.round(+r.rating), String(r.text || "").trim().slice(0, 600), s.id, today(), Date.now(), ip).run();
-      try { await saveReviewPhoto(db, ins.meta.last_row_id, r.photo); } catch (e) {}
-    }
+    const ins = await db.prepare(`INSERT INTO reviews(product_id,name,city,rating,text,source,status,sale_id,day,created,ip,products) VALUES(?,?,?,?,?,'Site','pending',?,?,?,?,?)`).bind(prods.length === 1 ? prods[0] : null, name, city, rating, String(body.text || "").trim().slice(0, 600), s.id, today(), Date.now(), ip, JSON.stringify(prods)).run();
+    try { await saveReviewPhoto(db, ins.meta.last_row_id, body.photo); } catch (e) {}
     return json({ ok: true });
   }
 
@@ -794,6 +792,12 @@ export async function onRequest(ctx) {
   }
 
   // Avaliações (gestão)
+  if (path === "/reviews/requests" && m === "GET") {
+    if (!mgr) return err("Só a gerência", 403);
+    const since = new Date(Date.now() + 2 * 3600e3 - 60 * 864e5).toISOString().slice(0, 10);
+    const rows = (await db.prepare(`SELECT s.id, s.day, s.customer, s.phone, s.subtotal, s.review_token, (SELECT GROUP_CONCAT(name, ' · ') FROM sale_items WHERE sale_id=s.id) items, (SELECT COUNT(*) FROM reviews r WHERE r.sale_id=s.id) done FROM sales s WHERE s.void=0 AND s.day>=? AND s.review_token IS NOT NULL ORDER BY s.id DESC LIMIT 150`).bind(since).all()).results;
+    return json({ rows });
+  }
   if (path === "/reviews/admin" && m === "GET") {
     if (!mgr) return err("Só a gerência", 403);
     return json({ rows: (await db.prepare(`SELECT r.*, (r.sale_id IS NOT NULL) verified FROM reviews r ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END, id DESC LIMIT 300`).all()).results });
@@ -807,18 +811,35 @@ export async function onRequest(ctx) {
     try { await saveReviewPhoto(db, ins.meta.last_row_id, body.photo); } catch (e) { return err(e.message); }
     return json({ ok: true });
   }
+  const apM = path.match(/^\/reviews\/(\d+)\/approve$/);
+  if (apM && m === "POST") {
+    if (!mgr) return err("Só a gerência", 403);
+    const r = await db.prepare(`SELECT * FROM reviews WHERE id=?`).bind(+apM[1]).first();
+    if (!r) return err("Avaliação não encontrada", 404);
+    const list = [...new Set((Array.isArray(body.products) ? body.products : []).map(String).filter(Boolean))].slice(0, 20);
+    await db.prepare(`UPDATE reviews SET status='approved', product_id=? WHERE id=?`).bind(list[0] || null, r.id).run();
+    const photoSrc = r.has_photo ? (r.photo_of || r.id) : null;
+    const st = list.slice(1).map(pid => db.prepare(`INSERT INTO reviews(product_id,name,city,rating,text,source,status,sale_id,day,created,ip,has_photo,photo_of,products) VALUES(?,?,?,?,?,?,'approved',?,?,?,?,?,?,NULL)`).bind(pid, r.name, r.city, r.rating, r.text, r.source, r.sale_id, r.day, Date.now(), r.ip, photoSrc ? 1 : 0, photoSrc));
+    if (st.length) await db.batch(st);
+    return json({ ok: true, n: Math.max(1, list.length) });
+  }
   const rvM = path.match(/^\/reviews\/(\d+)$/);
   if (rvM && (m === "PUT" || m === "DELETE")) {
     if (!mgr) return err("Só a gerência", 403);
-    if (m === "DELETE") { await db.batch([db.prepare(`DELETE FROM review_photos WHERE review_id=?`).bind(+rvM[1]), db.prepare(`DELETE FROM reviews WHERE id=?`).bind(+rvM[1])]); return json({ ok: true }); }
+    if (m === "DELETE") {
+      const shared = await db.prepare(`SELECT COUNT(*) n FROM reviews WHERE photo_of=?`).bind(+rvM[1]).first();
+      const st = [db.prepare(`DELETE FROM reviews WHERE id=?`).bind(+rvM[1])];
+      if (!shared.n) st.unshift(db.prepare(`DELETE FROM review_photos WHERE review_id=?`).bind(+rvM[1]));
+      await db.batch(st); return json({ ok: true });
+    }
     const sets = [], b = [];
     if (["pending", "approved", "rejected"].includes(body.status)) { sets.push("status=?"); b.push(body.status); }
     if (body.featured != null) { sets.push("featured=?"); b.push(body.featured ? 1 : 0); }
     ["name", "city", "text", "product_id"].forEach(k => { if (body[k] != null) { sets.push(`${k}=?`); b.push(String(body[k]).slice(0, 600) || null); } });
     if (body.rating != null) { sets.push("rating=?"); b.push(Math.max(1, Math.min(5, Math.round(+body.rating)))); }
     if (sets.length) await db.prepare(`UPDATE reviews SET ${sets.join(",")} WHERE id=?`).bind(...b, +rvM[1]).run();
-    if (body.photo === "") await db.batch([db.prepare(`DELETE FROM review_photos WHERE review_id=?`).bind(+rvM[1]), db.prepare(`UPDATE reviews SET has_photo=0 WHERE id=?`).bind(+rvM[1])]);
-    else try { await saveReviewPhoto(db, +rvM[1], body.photo); } catch (e) { return err(e.message); }
+    if (body.photo === "") { const sh = await db.prepare(`SELECT COUNT(*) n FROM reviews WHERE photo_of=?`).bind(+rvM[1]).first(); await db.batch([...(sh.n ? [] : [db.prepare(`DELETE FROM review_photos WHERE review_id=?`).bind(+rvM[1])]), db.prepare(`UPDATE reviews SET has_photo=0, photo_of=NULL WHERE id=?`).bind(+rvM[1])]); }
+    else if (body.photo) { try { await saveReviewPhoto(db, +rvM[1], body.photo); await db.prepare(`UPDATE reviews SET photo_of=NULL WHERE id=?`).bind(+rvM[1]).run(); } catch (e) { return err(e.message); } }
     return json({ ok: true });
   }
 

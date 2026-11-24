@@ -820,14 +820,15 @@ async function vAds(v,fresh){
   const rsv=$("#rsv"); if(rsv) rsv.onclick=async()=>{ try{ await api("/settings",{method:"PUT",body:{usd_rate:+$("#rate").value.replace(",",".")}}); toast("Taxa guardada"); vAds(v);}catch(e){toast(e.message);} };
 }
 async function vRevs(v){
-  v.innerHTML=`<div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><h2 style="margin:0;font-size:18px">Avaliações</h2><button class="btn" id="rnew">+ Avaliação do WhatsApp</button></div><div id="rb"><p class="empty">A carregar…</p></div>`;
+  v.innerHTML=`<div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:10px"><h2 style="margin:0;font-size:18px">Avaliações</h2><div class="row" style="flex-wrap:wrap"><button class="btn sec" id="rreq">📩 Pedir avaliação</button><button class="btn" id="rnew">+ Avaliação do WhatsApp</button></div></div><div id="rb"><p class="empty">A carregar…</p></div>`;
   $("#rnew").onclick=()=>revModal(null,()=>vRevs(v));
+  $("#rreq").onclick=reqModal;
   let rows; try{ rows=(await api("/reviews/admin")).rows; }catch(e){ $("#rb").innerHTML=`<p class="empty">${esc(e.message)}</p>`; return; }
   const pn=id=>{ if(!id) return "Atendimento / loja"; const p=S.products.find(x=>x.id===id); return p?p.name:id; };
   const st=n=>"★★★★★".slice(0,n)+"☆☆☆☆☆".slice(0,5-n);
   const pend=rows.filter(r=>r.status==="pending"), appr=rows.filter(r=>r.status==="approved"), rej=rows.filter(r=>r.status==="rejected");
   const avg=appr.length?appr.reduce((a,r)=>a+r.rating,0)/appr.length:0;
-  const item=r=>`<div class="ci" style="align-items:flex-start"><div style="display:flex;gap:10px">${r.has_photo?`<img src="/api/reviews/${r.id}/photo?admin=1" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex:none">`:""}<div><div><span style="color:#c9a24a">${st(r.rating)}</span> <span class="small muted">${esc(pn(r.product_id))}</span></div>${r.text?`<div style="margin:4px 0">“${esc(r.text)}”</div>`:""}<div class="small muted">${esc(r.name)}${r.city?` · ${esc(r.city)}`:""} · ${r.day?dmy(r.day):""} · ${r.verified?"✓ compra verificada":esc(r.source||"")}${r.status==="pending"?" · ao aprovar fica “✓ Verificado”":""}${r.featured?" · ⭐ destaque":""}</div></div></div>
+  const item=r=>`<div class="ci" style="align-items:flex-start"><div style="display:flex;gap:10px">${r.has_photo?`<img src="/api/reviews/${r.id}/photo?admin=1" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex:none">`:""}<div><div><span style="color:#c9a24a">${st(r.rating)}</span> <span class="small muted">${r.status==="pending"&&!r.product_id&&r.products&&r.products.length>4?"Compra com várias peças":esc(pn(r.product_id))}</span></div>${r.text?`<div style="margin:4px 0">“${esc(r.text)}”</div>`:""}${r.status==="pending"&&r.products?(()=>{ let ps=[]; try{ps=JSON.parse(r.products)||[];}catch(e){} return ps.length?`<div class="small muted" style="margin-top:6px">Juntar a:</div><div class="opts" style="margin-top:4px">${ps.map(pid=>`<button class="opt on" data-rp="${r.id}" data-pid="${esc(pid)}" style="min-width:0;padding:6px 10px;font-size:12px">✓ ${esc(pn(pid))}</button>`).join("")}</div>`:""; })():""}<div class="small muted">${esc(r.name)}${r.city?` · ${esc(r.city)}`:""} · ${r.day?dmy(r.day):""} · ${r.verified?"✓ compra verificada":esc(r.source||"")}${r.status==="pending"?" · ao aprovar fica “✓ Verificado”":""}${r.featured?" · ⭐ destaque":""}</div></div></div>
     <div class="row" style="flex-wrap:wrap;justify-content:flex-end;gap:6px">${r.status!=="approved"?`<button class="chip on" data-ap="${r.id}">Aprovar</button>`:`<button class="chip" data-ft="${r.id}" data-v="${r.featured?0:1}">${r.featured?"Tirar destaque":"⭐ Destacar"}</button>`}${r.status==="pending"?`<button class="chip" data-rj="${r.id}">Rejeitar</button>`:""}<button class="chip" data-red="${r.id}">Editar</button></div></div>`;
   $("#rb").innerHTML=`<div class="kpis" style="margin-top:12px"><div class="kpi"><small>No site</small><b>${appr.length}</b><div class="small muted">média ${avg.toFixed(1).replace(".",",")} ★</div></div><div class="kpi" style="${pend.length?"border-color:var(--red)":""}"><small>Por aprovar</small><b>${pend.length}</b><div class="small muted">enviadas pelos clientes</div></div></div>
     ${pend.length?`<div class="sec-h"><h3 class="mont">POR APROVAR</h3></div><div class="card">${pend.map(item).join("")}</div>`:""}
@@ -835,10 +836,37 @@ async function vRevs(v){
     ${rej.length?`<div class="sec-h"><h3 class="mont">REJEITADAS</h3></div><div class="card">${rej.map(item).join("")}</div>`:""}
     <p class="small muted">Os recibos enviados por WhatsApp já levam um link para o cliente avaliar. As avaliações dos clientes só aparecem no site depois de aprovadas aqui.</p>`;
   const upd=async(id,body,msg)=>{ try{ await api("/reviews/"+id,{method:"PUT",body}); toast(msg); vRevs(v);}catch(e){toast(e.message);} };
-  $$("[data-ap]",v).forEach(b=>b.onclick=()=>upd(b.dataset.ap,{status:"approved"},"Aprovada: já aparece no site"));
+  $$("[data-rp]",v).forEach(b=>b.onclick=()=>{ b.classList.toggle("on"); b.textContent=(b.classList.contains("on")?"✓ ":"")+pn(b.dataset.pid); });
+  $$("[data-ap]",v).forEach(b=>b.onclick=async()=>{ const id=+b.dataset.ap, r=rows.find(x=>x.id===id);
+    const chips=$$(`[data-rp="${id}"]`,v);
+    if(!chips.length) return upd(id,{status:"approved"},"Aprovada: já aparece no site");
+    const products=chips.filter(c=>c.classList.contains("on")).map(c=>c.dataset.pid);
+    if(!products.length&&!confirmBox("Nenhuma peça escolhida. Publicar só como avaliação geral (página inicial)?")) return;
+    try{ const x=await api(`/reviews/${id}/approve`,{method:"POST",body:{products}}); toast(products.length>1?`Aprovada e juntada a ${products.length} peças`:"Aprovada: já aparece no site"); vRevs(v); }catch(e){toast(e.message);} });
   $$("[data-rj]",v).forEach(b=>b.onclick=()=>upd(b.dataset.rj,{status:"rejected"},"Rejeitada"));
   $$("[data-ft]",v).forEach(b=>b.onclick=()=>upd(b.dataset.ft,{featured:+b.dataset.v},"Atualizado"));
   $$("[data-red]",v).forEach(b=>b.onclick=()=>revModal(rows.find(r=>r.id===+b.dataset.red),()=>vRevs(v)));
+}
+async function reqModal(){
+  const m=document.createElement("div"); m.className="mod";
+  m.innerHTML=`<div class="mbox"><div class="row" style="justify-content:space-between"><h2>📩 Pedir avaliação</h2><button class="qbtn" data-x>✕</button></div>
+    <p class="small muted">Escolhe a venda e envia o link ao cliente por WhatsApp. O cliente escreve <b>uma só vez</b> para todas as peças; depois aprovas aqui e escolhes a que peças se junta.</p>
+    <input class="f" id="rq_q" placeholder="Pesquisar cliente, telefone ou peça…"><div id="rq_l" style="margin-top:10px"><p class="empty">A carregar…</p></div></div>`;
+  document.body.appendChild(m);
+  $("[data-x]",m).onclick=()=>m.remove(); m.onclick=e=>{if(e.target===m)m.remove();};
+  let rows; try{ rows=(await api("/reviews/requests")).rows; }catch(e){ $("#rq_l",m).innerHTML=`<p class="empty">${esc(e.message)}</p>`; return; }
+  const draw=()=>{ const q=norm($("#rq_q",m).value).trim();
+    const list=rows.filter(r=>!q||norm(`${r.customer||""} ${r.phone||""} ${r.items||""}`).includes(q)).slice(0,60);
+    $("#rq_l",m).innerHTML=list.map(r=>`<div class="ci" style="align-items:center"><div><b>${esc(r.customer||"Sem nome")}</b> <span class="small muted">${dmy(r.day)} · ${fmt(r.subtotal)}</span><div class="small muted">${esc(r.items||"")}</div></div>
+      <div>${r.done?`<span class="tag" style="background:#e6f4ea;color:var(--grn)">✓ já avaliou</span>`:`<button class="chip on" data-rq="${r.id}">${r.phone?"WhatsApp":"Copiar link"}</button>`}</div></div>`).join("")||`<p class="empty">Sem vendas nos últimos 60 dias.</p>`;
+    $$("[data-rq]",m).forEach(b=>b.onclick=async()=>{ const r=rows.find(x=>x.id===+b.dataset.rq);
+      const link=`https://mz.mtanation.com/avaliar/?s=${r.id}&k=${r.review_token}`;
+      const nm=(r.customer||"").trim().split(" ")[0];
+      const msg=`Olá${nm?" "+nm:""}! 😊 Obrigado por escolheres a MTA Nation.\n\nPodes deixar a tua opinião sobre a tua compra? Demora só 1 minuto e é tudo num só formulário:\n${link}\n\nSe quiseres, junta uma foto com a peça 📸🖤`;
+      if(r.phone) window.open(`https://wa.me/${waNum(r.phone)}?text=${encodeURIComponent(msg)}`,"_blank");
+      else { try{ await navigator.clipboard.writeText(msg); toast("Mensagem copiada"); }catch(e){ prompt("Copia:",msg); } } });
+  };
+  $("#rq_q",m).oninput=draw; draw();
 }
 function revModal(r,after){
   const isNew=!r; r=r||{product_id:"",name:"",city:"Maputo",rating:5,text:"",day:S.today};

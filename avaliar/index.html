@@ -18,7 +18,7 @@ h1{font-family:Montserrat,sans-serif;font-size:18px;letter-spacing:.12em;text-al
 .item img{width:64px;height:64px;border-radius:10px;object-fit:cover;background:#eee;flex:none}
 .item b{font-size:14px}
 .st{display:flex;gap:4px;margin:8px 0}
-.st button{border:0;background:none;font-size:30px;line-height:1;color:#d6d6d6;cursor:pointer;padding:0 2px}
+.st button{border:0;background:none;font-size:38px;line-height:1;color:#d6d6d6;cursor:pointer;padding:0 2px}
 .st button.on{color:#2E7D4F}
 .ph{display:flex;align-items:center;gap:10px;margin-top:8px}.ph label{border:1.5px dashed #c9cbcd;border-radius:10px;padding:9px 13px;font-size:14px;cursor:pointer;margin:0;text-transform:none;letter-spacing:0;font-weight:500;color:#333}.ph img{width:52px;height:52px;object-fit:cover;border-radius:8px}
 textarea,input{width:100%;font:inherit;padding:11px 12px;border:1px solid #e3e4e5;border-radius:10px;background:#fff}
@@ -29,6 +29,7 @@ label{display:block;font-size:11px;font-weight:700;letter-spacing:.1em;text-tran
 .err{color:#c62828;font-size:14px;min-height:20px;margin-top:10px;text-align:center}
 .hp{position:absolute;left:-9999px}
 .ok{text-align:center;padding:30px 10px}.ok .big{font-size:52px}
+.pcs{display:flex;gap:10px;overflow-x:auto}.pc{flex:none;width:84px;text-align:center;font-size:11.5px;line-height:1.25}.pc img{width:84px;height:84px;border-radius:10px;object-fit:cover;background:#eee;display:block;margin-bottom:5px}
 .note{font-size:12px;color:#888;text-align:center;margin-top:12px}
 </style>
 </head>
@@ -38,31 +39,31 @@ label{display:block;font-size:11px;font-weight:700;letter-spacing:.1em;text-tran
 <script>
 const q=new URLSearchParams(location.search), S=q.get("s"), K=q.get("k"), app=document.getElementById("app");
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const ratings={}, photos={};
 function shrink(file){ return new Promise((res,rej)=>{ const img=new Image(), u=URL.createObjectURL(file); img.onload=()=>{ const k=Math.min(1,1080/Math.max(img.width,img.height)); const c=document.createElement("canvas"); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k); c.getContext("2d").drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(u); res(c.toDataURL("image/jpeg",0.72)); }; img.onerror=()=>rej(new Error("Foto inválida")); img.src=u; }); }
 function stars(key){ return `<div class="st" data-key="${key}">${[1,2,3,4,5].map(n=>`<button type="button" data-n="${n}" aria-label="${n} estrelas">★</button>`).join("")}</div>`; }
 fetch(`/api/reviews/sale?s=${encodeURIComponent(S||"")}&k=${encodeURIComponent(K||"")}`).then(r=>r.json().then(d=>({ok:r.ok,d}))).then(({ok,d})=>{
   if(!ok){ app.innerHTML=`<div class="card ok"><div class="big">🔗</div><h1>LINK INVÁLIDO</h1><p class="sub">Este link de avaliação não é válido. Fala connosco pelo WhatsApp.</p></div>`; return; }
   if(d.done){ app.innerHTML=`<div class="card ok"><div class="big">🖤</div><h1>OBRIGADO!</h1><p class="sub">Esta compra já foi avaliada.</p><a class="btn" href="/">Ver catálogo</a></div>`; return; }
-  app.innerHTML=`<h1>AVALIA A TUA COMPRA</h1><p class="sub">${d.customer?`Olá ${esc(d.customer)}! `:""}A tua opinião ajuda outros clientes e a nós a melhorar.</p>
-    ${d.items.map((it,i)=>`<div class="card"><div class="item"><img src="/img/t/${esc(it.product_id)}.jpg" alt="" onerror="this.style.visibility='hidden'"><b>${esc(it.name)}</b></div>${stars("p"+i)}<textarea data-t="p${i}" placeholder="O que achaste da peça? (opcional)"></textarea><div class="ph"><label>📷 Adicionar foto<input type="file" accept="image/*" data-ph="p${i}" hidden></label><span data-pv="p${i}" style="font-size:12px;color:#888">opcional · tu com a peça</span></div></div>`).join("")}
-    <div class="card"><b>E o nosso atendimento?</b>${stars("svc")}<textarea data-t="svc" placeholder="Como foi a experiência connosco? (opcional)"></textarea></div>
-    <div class="card"><label>O teu nome (aparece assim no site)</label><input id="nm" placeholder="ex: Danilo M." maxlength="40"><label>Cidade</label><input id="ct" placeholder="ex: Maputo" maxlength="40"><input class="hp" id="hp" tabindex="-1" autocomplete="off"></div>
+  const many=d.items.length>1;
+  app.innerHTML=`<h1>AVALIA A TUA COMPRA</h1><p class="sub">${d.customer?`Olá ${esc(d.customer)}! `:""}Só demora 1 minuto. A tua opinião ajuda outros clientes.</p>
+    <div class="card"><label style="margin-top:0">${many?"As tuas peças":"A tua peça"}</label><div class="pcs">${d.items.map(it=>`<div class="pc"><img src="/img/t/${esc(it.product_id)}.jpg" alt="" onerror="this.style.visibility='hidden'"><span>${esc(it.name)}</span></div>`).join("")}</div></div>
+    <div class="card"><b>${many?"O que achaste das peças e do atendimento?":"O que achaste da peça e do atendimento?"}</b>${stars("all")}
+      <textarea id="tx" placeholder="Conta-nos em poucas palavras (opcional)"></textarea>
+      <div class="ph"><label>📷 Adicionar foto<input type="file" accept="image/*" id="ph" hidden></label><span id="pv" style="font-size:12px;color:#888">opcional · tu com ${many?"as peças":"a peça"}</span></div></div>
+    <div class="card"><label style="margin-top:0">O teu nome (aparece assim no site)</label><input id="nm" placeholder="ex: Danilo M." maxlength="40"><label>Cidade</label><input id="ct" placeholder="ex: Maputo" maxlength="40"><input class="hp" id="hp" tabindex="-1" autocomplete="off"></div>
     <button class="btn" id="go">Enviar avaliação</button><div class="err" id="err"></div>
-    <p class="note">As avaliações são revistas antes de aparecerem no site.</p>`;
-  document.querySelectorAll(".st").forEach(box=>box.querySelectorAll("button").forEach(b=>b.onclick=()=>{ const n=+b.dataset.n; ratings[box.dataset.key]=n; box.querySelectorAll("button").forEach(x=>x.classList.toggle("on",+x.dataset.n<=n)); }));
-  document.querySelectorAll("[data-ph]").forEach(inp=>inp.onchange=async()=>{ const f=inp.files[0]; if(!f) return; const k=inp.dataset.ph, pv=document.querySelector(`[data-pv="${k}"]`); pv.textContent="A preparar…"; try{ photos[k]=await shrink(f); pv.innerHTML=`<img src="${photos[k]}" alt="">`; }catch(x){ pv.textContent=x.message; } });
+    <p class="note">Escreves só uma vez${many?" e nós juntamos a tua avaliação a cada peça":""}. As avaliações são revistas antes de aparecerem no site.</p>`;
+  let rating=0, photo=null;
+  document.querySelectorAll(".st button").forEach(b=>b.onclick=()=>{ rating=+b.dataset.n; document.querySelectorAll(".st button").forEach(x=>x.classList.toggle("on",+x.dataset.n<=rating)); });
+  document.getElementById("ph").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; const pv=document.getElementById("pv"); pv.textContent="A preparar…"; try{ photo=await shrink(f); pv.innerHTML=`<img src="${photo}" alt="">`; }catch(x){ pv.textContent=x.message; } };
   document.getElementById("go").onclick=async e=>{
-    const t=k=>(document.querySelector(`[data-t="${k}"]`)||{}).value||"";
-    const reviews=d.items.map((it,i)=>({product_id:it.product_id,rating:ratings["p"+i],text:t("p"+i),photo:photos["p"+i]||null})).filter(r=>r.rating);
-    if(ratings.svc) reviews.push({product_id:null,rating:ratings.svc,text:t("svc")});
     const err=document.getElementById("err"); err.textContent="";
-    if(!reviews.length){ err.textContent="Toca nas estrelas para avaliar."; return; }
+    if(!rating){ err.textContent="Toca nas estrelas para avaliar."; return; }
     const name=document.getElementById("nm").value.trim(); if(!name){ err.textContent="Escreve o teu nome."; return; }
-    e.target.disabled=true;
-    try{ const r=await fetch("/api/reviews/submit",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({s:S,k:K,name,city:document.getElementById("ct").value.trim(),reviews,website:document.getElementById("hp").value})}); const x=await r.json(); if(!r.ok) throw new Error(x.error||"Erro");
+    e.target.disabled=true; e.target.textContent="A enviar…";
+    try{ const r=await fetch("/api/reviews/submit",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({s:S,k:K,name,city:document.getElementById("ct").value.trim(),rating,text:document.getElementById("tx").value.trim(),photo,website:document.getElementById("hp").value})}); const x=await r.json(); if(!r.ok) throw new Error(x.error||"Erro");
       app.innerHTML=`<div class="card ok"><div class="big">🖤</div><h1>OBRIGADO!</h1><p class="sub">A tua avaliação foi recebida.</p><a class="btn" href="/">Ver catálogo</a></div>`;
-    }catch(x){ err.textContent=x.message; e.target.disabled=false; }
+    }catch(x){ err.textContent=x.message; e.target.disabled=false; e.target.textContent="Enviar avaliação"; }
   };
 }).catch(()=>{ app.innerHTML=`<p class="sub">Não foi possível carregar. Tenta de novo.</p>`; });
 </script>

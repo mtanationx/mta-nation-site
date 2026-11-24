@@ -46,3 +46,12 @@ Sistema de vendas da loja (Glória Mall) em **mz.mtanation.com/pos**.
   - As semanas vão de segunda a domingo e cada semana conta no mês em que termina.
   - O resumo alerta para semanas sem voltas.
   - As semanas antes de `dlv_start`, a data do primeiro uso, ficam fora das contas.
+
+## Avaliações: uma só por compra (24/11)
+- `/avaliar/?s&k`: o cliente dá 1 classificação, 1 comentário e 1 foto para a compra toda, com as peças compradas mostradas como contexto.
+- `/reviews/submit` cria 1 avaliação pendente com `products` (JSON com os ids da venda). Se a venda tem só 1 peça, o `product_id` já fica preenchido.
+- No POS (Marketing → Avaliações), cada avaliação pendente mostra chips "Juntar a:", todos ligados por defeito. Ao aprovar, `POST /reviews/:id/approve {products}` faz o seguinte:
+  - a avaliação original fica com o 1.º produto;
+  - para cada produto seguinte cria uma cópia aprovada, com `photo_of` a apontar para a foto original (a foto não é duplicada).
+- Se se apagar a avaliação original, a foto mantém-se enquanto houver cópias que a usam.
+- O botão "📩 Pedir avaliação" lista as vendas dos últimos 60 dias (`/reviews/requests`) e abre o WhatsApp do cliente com o link.

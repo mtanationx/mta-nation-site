@@ -55,5 +55,5 @@ Sistema de vendas da loja (Glória Mall) em **mz.mtanation.com/pos**.
   - para cada produto seguinte cria uma cópia aprovada, com `photo_of` a apontar para a foto original (a foto não é duplicada).
 - Se se apagar a avaliação original, a foto mantém-se enquanto houver cópias que a usam.
 - O botão "📩 Pedir avaliação" lista as vendas dos últimos 60 dias (`/reviews/requests`) e abre o WhatsApp do cliente com o link.
-- Link geral `/avaliar/` (sem código): o cliente pesquisa e escolhe as peças (opcional, a partir de `/pos/products.json`) e escreve uma só vez. Usa `/reviews/open` com `products[]`.
+- Link geral `/avaliar/` (sem código): avaliação só do serviço (estrelas, comentário, foto opcional, nome, cidade). Sem escolha de peças; a gerência junta às peças na aprovação.
 - Em qualquer avaliação pendente, a gerência pode juntar peças com o seletor "+ Juntar a uma peça…" (útil para avaliações gerais de clientes antigos).

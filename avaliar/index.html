@@ -52,7 +52,7 @@ fetch(`/api/reviews/sale?s=${encodeURIComponent(S||"")}&k=${encodeURIComponent(K
     <div class="card"><b>${many?"O que achaste das peças e do atendimento?":"O que achaste da peça e do atendimento?"}</b>${stars("all")}
       <textarea id="tx" placeholder="Conta-nos em poucas palavras (opcional)"></textarea>
       <div class="ph"><label>📷 Adicionar foto<input type="file" accept="image/*" id="ph" hidden></label><span id="pv" style="font-size:12px;color:#888">opcional · tu com ${many?"as peças":"a peça"}</span></div></div>
-    <div class="card"><label style="margin-top:0">O teu nome (aparece assim no site)</label><input id="nm" placeholder="ex: Danilo M." maxlength="40"><label>Cidade</label><input id="ct" placeholder="ex: Maputo" maxlength="40"><input class="hp" id="hp" tabindex="-1" autocomplete="off"></div>
+    <div class="card"><label style="margin-top:0">O teu nome (aparece assim no site)</label><input id="nm" placeholder="ex: Danilo M." maxlength="40"><label>Cidade</label><input id="ct" placeholder="ex: Maputo (opcional)" maxlength="40"><input class="hp" id="hp" tabindex="-1" autocomplete="off"></div>
     <button class="btn" id="go">Enviar avaliação</button><div class="err" id="err"></div>
     <p class="note">Escreves só uma vez${many?" e nós juntamos a tua avaliação a cada peça":""}. As avaliações são revistas antes de aparecerem no site.</p>`;
   let rating=0, photo=null;
@@ -70,25 +70,14 @@ fetch(`/api/reviews/sale?s=${encodeURIComponent(S||"")}&k=${encodeURIComponent(K
 }).catch(()=>{ app.innerHTML=`<p class="sub">Não foi possível carregar. Tenta de novo.</p>`; });
 
 async function openForm(){
-  let prods=[]; try{ prods=await (await fetch("/pos/products.json",{cache:"no-cache"})).json(); prods=prods.filter(p=>p.cat!=="Caixinha MTA"); }catch(e){}
-  const sel=new Set(); let rating=0, photo=null;
-  const nm=s=>String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+  let rating=0, photo=null;
   app.innerHTML=`<h1>AVALIA A MTA NATION</h1><p class="sub">Já compraste connosco? Conta-nos como foi. Só demora 1 minuto.</p>
     <div class="card"><b>Como foi a tua experiência com a MTA Nation?</b>${stars("all")}
       <textarea id="tx" placeholder="O atendimento, as peças, a entrega… conta-nos em poucas palavras"></textarea>
       <div class="ph"><label>📷 Adicionar foto<input type="file" accept="image/*" id="ph" hidden></label><span id="pv" style="font-size:12px;color:#888">opcional · tu com a peça</span></div></div>
-    <div class="card"><label style="margin-top:0">Lembras-te da peça que compraste? <span style="text-transform:none;letter-spacing:0;font-weight:500">(opcional)</span></label>
-      <input id="pq" placeholder="Pesquisar (ex: cuban, anel, rosa…)"><div id="psel" class="pcs" style="margin-top:10px"></div><div id="pres" class="res"></div></div>
-    <div class="card"><label style="margin-top:0">O teu nome (aparece assim no site)</label><input id="nm" placeholder="ex: Danilo M." maxlength="40"><label>Cidade</label><input id="ct" placeholder="ex: Maputo" maxlength="40"><label>Telefone (opcional, não aparece no site)</label><input id="tel" inputmode="tel" maxlength="20"><input class="hp" id="hp" tabindex="-1" autocomplete="off"></div>
+    <div class="card"><label style="margin-top:0">O teu nome (aparece assim no site)</label><input id="nm" placeholder="ex: Danilo M." maxlength="40"><label>Cidade</label><input id="ct" placeholder="ex: Maputo" maxlength="40"><input class="hp" id="hp" tabindex="-1" autocomplete="off"></div>
     <button class="btn" id="go">Enviar avaliação</button><div class="err" id="err"></div>
     <p class="note">As avaliações são revistas antes de aparecerem no site.</p>`;
-  const drawSel=()=>{ document.getElementById("psel").innerHTML=[...sel].map(id=>{ const p=prods.find(x=>x.id===id); return `<div class="pc" data-rm="${esc(id)}" title="Remover"><img src="/img/t/${esc(id)}.jpg" alt="" onerror="this.style.visibility='hidden'"><span>${esc(p?p.name:id)} ✕</span></div>`; }).join("");
-    document.querySelectorAll("[data-rm]").forEach(x=>x.onclick=()=>{ sel.delete(x.dataset.rm); drawSel(); }); };
-  const pq=document.getElementById("pq"), pres=document.getElementById("pres");
-  pq.oninput=()=>{ const q=nm(pq.value).trim(); if(q.length<2){ pres.innerHTML=""; return; }
-    const r=prods.filter(p=>nm(p.name+" "+p.cat).includes(q)&&!sel.has(p.id)).slice(0,8);
-    pres.innerHTML=r.map(p=>`<button type="button" data-add="${esc(p.id)}"><img src="/img/t/${esc(p.id)}.jpg" alt="" onerror="this.style.visibility='hidden'">${esc(p.name)} <small>${esc(p.cat)}</small></button>`).join("")||`<p style="font-size:13px;color:#888;margin:6px 0">Nada encontrado.</p>`;
-    pres.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{ if(sel.size<10) sel.add(b.dataset.add); pq.value=""; pres.innerHTML=""; drawSel(); }); };
   document.querySelectorAll(".st button").forEach(b=>b.onclick=()=>{ rating=+b.dataset.n; document.querySelectorAll(".st button").forEach(x=>x.classList.toggle("on",+x.dataset.n<=rating)); });
   document.getElementById("ph").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; const pv=document.getElementById("pv"); pv.textContent="A preparar…"; try{ photo=await shrink(f); pv.innerHTML=`<img src="${photo}" alt="">`; }catch(x){ pv.textContent=x.message; } };
   document.getElementById("go").onclick=async e=>{ const err=document.getElementById("err"); err.textContent="";
@@ -96,7 +85,7 @@ async function openForm(){
     const name=document.getElementById("nm").value.trim(); if(!name){ err.textContent="Escreve o teu nome."; return; }
     const text=document.getElementById("tx").value.trim(); if(text.length<3){ err.textContent="Escreve um pequeno comentário."; return; }
     e.target.disabled=true; e.target.textContent="A enviar…";
-    try{ const r=await fetch("/api/reviews/open",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({products:[...sel],rating,text,name,city:document.getElementById("ct").value.trim(),phone:document.getElementById("tel").value,photo,website:document.getElementById("hp").value})}); const x=await r.json(); if(!r.ok) throw new Error(x.error||"Erro");
+    try{ const r=await fetch("/api/reviews/open",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({rating,text,name,city:document.getElementById("ct").value.trim(),photo,website:document.getElementById("hp").value})}); const x=await r.json(); if(!r.ok) throw new Error(x.error||"Erro");
       app.innerHTML=`<div class="card ok"><div class="big">🖤</div><h1>OBRIGADO!</h1><p class="sub">A tua avaliação foi recebida.</p><a class="btn" href="/">Ver catálogo</a></div>`;
     }catch(x){ err.textContent=x.message; e.target.disabled=false; e.target.textContent="Enviar avaliação"; } };
 }

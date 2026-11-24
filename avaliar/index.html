@@ -30,6 +30,7 @@ label{display:block;font-size:11px;font-weight:700;letter-spacing:.1em;text-tran
 .hp{position:absolute;left:-9999px}
 .ok{text-align:center;padding:30px 10px}.ok .big{font-size:52px}
 .pcs{display:flex;gap:10px;overflow-x:auto}.pc{flex:none;width:84px;text-align:center;font-size:11.5px;line-height:1.25}.pc img{width:84px;height:84px;border-radius:10px;object-fit:cover;background:#eee;display:block;margin-bottom:5px}
+.res button{display:flex;align-items:center;gap:10px;width:100%;border:0;border-bottom:1px solid #eee;background:none;padding:8px 2px;font:inherit;font-size:14px;text-align:left;cursor:pointer}.res img{width:40px;height:40px;border-radius:8px;object-fit:cover;background:#eee}.res small{color:#999;margin-left:auto}.pc[data-rm]{cursor:pointer}
 .note{font-size:12px;color:#888;text-align:center;margin-top:12px}
 </style>
 </head>
@@ -41,6 +42,7 @@ const q=new URLSearchParams(location.search), S=q.get("s"), K=q.get("k"), app=do
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function shrink(file){ return new Promise((res,rej)=>{ const img=new Image(), u=URL.createObjectURL(file); img.onload=()=>{ const k=Math.min(1,1080/Math.max(img.width,img.height)); const c=document.createElement("canvas"); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k); c.getContext("2d").drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(u); res(c.toDataURL("image/jpeg",0.72)); }; img.onerror=()=>rej(new Error("Foto inválida")); img.src=u; }); }
 function stars(key){ return `<div class="st" data-key="${key}">${[1,2,3,4,5].map(n=>`<button type="button" data-n="${n}" aria-label="${n} estrelas">★</button>`).join("")}</div>`; }
+if(!S||!K){ openForm(); } else
 fetch(`/api/reviews/sale?s=${encodeURIComponent(S||"")}&k=${encodeURIComponent(K||"")}`).then(r=>r.json().then(d=>({ok:r.ok,d}))).then(({ok,d})=>{
   if(!ok){ app.innerHTML=`<div class="card ok"><div class="big">🔗</div><h1>LINK INVÁLIDO</h1><p class="sub">Este link de avaliação não é válido. Fala connosco pelo WhatsApp.</p></div>`; return; }
   if(d.done){ app.innerHTML=`<div class="card ok"><div class="big">🖤</div><h1>OBRIGADO!</h1><p class="sub">Esta compra já foi avaliada.</p><a class="btn" href="/">Ver catálogo</a></div>`; return; }
@@ -66,6 +68,38 @@ fetch(`/api/reviews/sale?s=${encodeURIComponent(S||"")}&k=${encodeURIComponent(K
     }catch(x){ err.textContent=x.message; e.target.disabled=false; e.target.textContent="Enviar avaliação"; }
   };
 }).catch(()=>{ app.innerHTML=`<p class="sub">Não foi possível carregar. Tenta de novo.</p>`; });
+
+async function openForm(){
+  let prods=[]; try{ prods=await (await fetch("/pos/products.json",{cache:"no-cache"})).json(); prods=prods.filter(p=>p.cat!=="Caixinha MTA"); }catch(e){}
+  const sel=new Set(); let rating=0, photo=null;
+  const nm=s=>String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+  app.innerHTML=`<h1>AVALIA A TUA COMPRA</h1><p class="sub">Só demora 1 minuto. A tua opinião ajuda outros clientes.</p>
+    <div class="card"><label style="margin-top:0">Que peça(s) compraste? <span style="text-transform:none;letter-spacing:0;font-weight:500">(opcional)</span></label>
+      <input id="pq" placeholder="Pesquisar (ex: cuban, anel, rosa…)"><div id="psel" class="pcs" style="margin-top:10px"></div><div id="pres" class="res"></div></div>
+    <div class="card"><b>O que achaste das peças e do atendimento?</b>${stars("all")}
+      <textarea id="tx" placeholder="Conta-nos em poucas palavras (opcional)"></textarea>
+      <div class="ph"><label>📷 Adicionar foto<input type="file" accept="image/*" id="ph" hidden></label><span id="pv" style="font-size:12px;color:#888">opcional · tu com a peça</span></div></div>
+    <div class="card"><label style="margin-top:0">O teu nome (aparece assim no site)</label><input id="nm" placeholder="ex: Danilo M." maxlength="40"><label>Cidade</label><input id="ct" placeholder="ex: Maputo" maxlength="40"><label>Telefone (opcional, não aparece no site)</label><input id="tel" inputmode="tel" maxlength="20"><input class="hp" id="hp" tabindex="-1" autocomplete="off"></div>
+    <button class="btn" id="go">Enviar avaliação</button><div class="err" id="err"></div>
+    <p class="note">As avaliações são revistas antes de aparecerem no site.</p>`;
+  const drawSel=()=>{ document.getElementById("psel").innerHTML=[...sel].map(id=>{ const p=prods.find(x=>x.id===id); return `<div class="pc" data-rm="${esc(id)}" title="Remover"><img src="/img/t/${esc(id)}.jpg" alt="" onerror="this.style.visibility='hidden'"><span>${esc(p?p.name:id)} ✕</span></div>`; }).join("");
+    document.querySelectorAll("[data-rm]").forEach(x=>x.onclick=()=>{ sel.delete(x.dataset.rm); drawSel(); }); };
+  const pq=document.getElementById("pq"), pres=document.getElementById("pres");
+  pq.oninput=()=>{ const q=nm(pq.value).trim(); if(q.length<2){ pres.innerHTML=""; return; }
+    const r=prods.filter(p=>nm(p.name+" "+p.cat).includes(q)&&!sel.has(p.id)).slice(0,8);
+    pres.innerHTML=r.map(p=>`<button type="button" data-add="${esc(p.id)}"><img src="/img/t/${esc(p.id)}.jpg" alt="" onerror="this.style.visibility='hidden'">${esc(p.name)} <small>${esc(p.cat)}</small></button>`).join("")||`<p style="font-size:13px;color:#888;margin:6px 0">Nada encontrado.</p>`;
+    pres.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{ if(sel.size<10) sel.add(b.dataset.add); pq.value=""; pres.innerHTML=""; drawSel(); }); };
+  document.querySelectorAll(".st button").forEach(b=>b.onclick=()=>{ rating=+b.dataset.n; document.querySelectorAll(".st button").forEach(x=>x.classList.toggle("on",+x.dataset.n<=rating)); });
+  document.getElementById("ph").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; const pv=document.getElementById("pv"); pv.textContent="A preparar…"; try{ photo=await shrink(f); pv.innerHTML=`<img src="${photo}" alt="">`; }catch(x){ pv.textContent=x.message; } };
+  document.getElementById("go").onclick=async e=>{ const err=document.getElementById("err"); err.textContent="";
+    if(!rating){ err.textContent="Toca nas estrelas para avaliar."; return; }
+    const name=document.getElementById("nm").value.trim(); if(!name){ err.textContent="Escreve o teu nome."; return; }
+    const text=document.getElementById("tx").value.trim(); if(text.length<3){ err.textContent="Escreve um pequeno comentário."; return; }
+    e.target.disabled=true; e.target.textContent="A enviar…";
+    try{ const r=await fetch("/api/reviews/open",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({products:[...sel],rating,text,name,city:document.getElementById("ct").value.trim(),phone:document.getElementById("tel").value,photo,website:document.getElementById("hp").value})}); const x=await r.json(); if(!r.ok) throw new Error(x.error||"Erro");
+      app.innerHTML=`<div class="card ok"><div class="big">🖤</div><h1>OBRIGADO!</h1><p class="sub">A tua avaliação foi recebida.</p><a class="btn" href="/">Ver catálogo</a></div>`;
+    }catch(x){ err.textContent=x.message; e.target.disabled=false; e.target.textContent="Enviar avaliação"; } };
+}
 </script>
 </body>
 </html>

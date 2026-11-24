@@ -834,7 +834,7 @@ async function vRevs(v){
     ${pend.length?`<div class="sec-h"><h3 class="mont">POR APROVAR</h3></div><div class="card">${pend.map(item).join("")}</div>`:""}
     <div class="sec-h"><h3 class="mont">NO SITE</h3><span class="small muted">⭐ destaque = aparece primeiro na página inicial</span></div><div class="card">${appr.map(item).join("")||`<p class="muted small">Ainda sem avaliações. Toca em “+ Avaliação do WhatsApp” para registar os elogios que recebem.</p>`}</div>
     ${rej.length?`<div class="sec-h"><h3 class="mont">REJEITADAS</h3></div><div class="card">${rej.map(item).join("")}</div>`:""}
-    <p class="small muted">Os recibos enviados por WhatsApp já levam um link para o cliente avaliar. As avaliações dos clientes só aparecem no site depois de aprovadas aqui.</p>`;
+    <p class="small muted">Link geral (para quem não tem venda no POS): <b>mz.mtanation.com/avaliar</b>. Os recibos enviados por WhatsApp já levam um link para o cliente avaliar. As avaliações dos clientes só aparecem no site depois de aprovadas aqui.</p>`;
   const upd=async(id,body,msg)=>{ try{ await api("/reviews/"+id,{method:"PUT",body}); toast(msg); vRevs(v);}catch(e){toast(e.message);} };
   $$("[data-rp]",v).forEach(b=>b.onclick=()=>{ b.classList.toggle("on"); b.textContent=(b.classList.contains("on")?"✓ ":"")+pn(b.dataset.pid); });
   $$("[data-ap]",v).forEach(b=>b.onclick=async()=>{ const id=+b.dataset.ap, r=rows.find(x=>x.id===id);

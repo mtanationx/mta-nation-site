@@ -204,7 +204,9 @@ export async function onRequest(ctx) {
     const name = String(body.name || "").trim().slice(0, 40); if (!name) return err("Escreve o teu nome");
     const text = String(body.text || "").trim().slice(0, 600); if (text.length < 3) return err("Escreve um pequeno comentário");
     const notes = String(body.phone || "").replace(/[^\d+ ]/g, "").slice(0, 20);
-    const ins = await db.prepare(`INSERT INTO reviews(product_id,name,city,rating,text,source,status,day,created,ip) VALUES(?,?,?,?,?,?,'pending',?,?,?)`).bind(body.product_id || null, name, String(body.city || "").trim().slice(0, 40), rating, text, "Site" + (notes ? " · " + notes : ""), today(), Date.now(), ip).run();
+    const prods = [...new Set((Array.isArray(body.products) ? body.products : []).map(x => String(x).slice(0, 60)).filter(Boolean))].slice(0, 10);
+    const pid = body.product_id || (prods.length === 1 ? prods[0] : null);
+    const ins = await db.prepare(`INSERT INTO reviews(product_id,name,city,rating,text,source,status,day,created,ip,products) VALUES(?,?,?,?,?,?,'pending',?,?,?,?)`).bind(pid, name, String(body.city || "").trim().slice(0, 40), rating, text, "Site" + (notes ? " · " + notes : ""), today(), Date.now(), ip, prods.length > 1 ? JSON.stringify(prods) : null).run();
     try { await saveReviewPhoto(db, ins.meta.last_row_id, body.photo); } catch (e) { return err(e.message); }
     return json({ ok: true });
   }

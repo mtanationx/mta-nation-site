@@ -73,12 +73,12 @@ async function openForm(){
   let prods=[]; try{ prods=await (await fetch("/pos/products.json",{cache:"no-cache"})).json(); prods=prods.filter(p=>p.cat!=="Caixinha MTA"); }catch(e){}
   const sel=new Set(); let rating=0, photo=null;
   const nm=s=>String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
-  app.innerHTML=`<h1>AVALIA A TUA COMPRA</h1><p class="sub">Só demora 1 minuto. A tua opinião ajuda outros clientes.</p>
-    <div class="card"><label style="margin-top:0">Que peça(s) compraste? <span style="text-transform:none;letter-spacing:0;font-weight:500">(opcional)</span></label>
-      <input id="pq" placeholder="Pesquisar (ex: cuban, anel, rosa…)"><div id="psel" class="pcs" style="margin-top:10px"></div><div id="pres" class="res"></div></div>
-    <div class="card"><b>O que achaste das peças e do atendimento?</b>${stars("all")}
-      <textarea id="tx" placeholder="Conta-nos em poucas palavras (opcional)"></textarea>
+  app.innerHTML=`<h1>AVALIA A MTA NATION</h1><p class="sub">Já compraste connosco? Conta-nos como foi. Só demora 1 minuto.</p>
+    <div class="card"><b>Como foi a tua experiência com a MTA Nation?</b>${stars("all")}
+      <textarea id="tx" placeholder="O atendimento, as peças, a entrega… conta-nos em poucas palavras"></textarea>
       <div class="ph"><label>📷 Adicionar foto<input type="file" accept="image/*" id="ph" hidden></label><span id="pv" style="font-size:12px;color:#888">opcional · tu com a peça</span></div></div>
+    <div class="card"><label style="margin-top:0">Lembras-te da peça que compraste? <span style="text-transform:none;letter-spacing:0;font-weight:500">(opcional)</span></label>
+      <input id="pq" placeholder="Pesquisar (ex: cuban, anel, rosa…)"><div id="psel" class="pcs" style="margin-top:10px"></div><div id="pres" class="res"></div></div>
     <div class="card"><label style="margin-top:0">O teu nome (aparece assim no site)</label><input id="nm" placeholder="ex: Danilo M." maxlength="40"><label>Cidade</label><input id="ct" placeholder="ex: Maputo" maxlength="40"><label>Telefone (opcional, não aparece no site)</label><input id="tel" inputmode="tel" maxlength="20"><input class="hp" id="hp" tabindex="-1" autocomplete="off"></div>
     <button class="btn" id="go">Enviar avaliação</button><div class="err" id="err"></div>
     <p class="note">As avaliações são revistas antes de aparecerem no site.</p>`;
